@@ -1,9 +1,9 @@
-# 🛰️ Vanilla Drone Detection — Development & Research Plan
+# 🛰️ Vanilla Drone Detection — Development & Project Plan
 
 <p align="center">
   <img src="https://img.shields.io/badge/Task-ISLab%20Pusan%20National%20University-blue?style=for-the-badge&logo=googlescholar" alt="Task" />
   <img src="https://img.shields.io/badge/PyTorch-2.2+-ee4c2c?style=for-the-badge&logo=pytorch&logoColor=white" alt="PyTorch" />
-  <img src="https://img.shields.io/badge/Architecture-Anchor--Free%20FPN%2FPAN%2FCBAM-green?style=for-the-badge" alt="Architecture" />
+  <img src="https://img.shields.io/badge/Loss-Hybrid%20CIoU%2FNWD%20%2B%20Focal-orange?style=for-the-badge" alt="Loss" />
   <img src="https://img.shields.io/badge/Weights-100%25%20From--Scratch-purple?style=for-the-badge" alt="Scratch" />
 </p>
 
@@ -13,17 +13,17 @@
 
 This repository hosts the from-scratch prototype and experimental framework for the **ISLab Pusan National University AI Engineering Researcher Position Evaluation**.
 
-The objective is to design, implement, and benchmark a **100% Vanilla Anchor-Free Object Detector** for drone detection and classification under severe scale disparity (tiny distant objects) and complex aerial background clutter, without relying on any pretrained weights or third-party detection frameworks (e.g., MMDetection, Detectron2, Ultralytics).
+The central contribution of this project is the formulation of a **Hybrid Multi-Task Loss Objective ($\mathcal{L}_{\text{hybrid}}$)** designed to overcome the severe limitations of standard IoU-based regression when detecting ultra-small, distant UAV drones ($<20\times20\text{ px}$). By combining **Normalized Gaussian Wasserstein Distance (NWD)** for scale-insensitive tiny target regression, **Complete IoU (CIoU)** for aspect-ratio preservation on medium targets, and **Sigmoid Focal Loss** for background class imbalance, our 100% vanilla anchor-free detector achieves stable gradient propagation without relying on pretrained backbones or transfer learning.
 
 ---
 
-## 🎯 Core Requirements & Constraints
+## 🎯 Core Project Focus & Constraints
 
-- 🚫 **No Pretrained Weights**: Entire network initialized randomly from scratch ($\mathcal{N}(0, \sigma^2)$).
-- 📐 **Custom Loss Function**: Hand-crafted multi-task objective addressing extreme aerial scale disparity and class imbalance.
-- 🔬 **Systematic Ablation Study**: Multi-tier architectural evolution isolating feature fusion, spatial attention, and stride mechanics.
-- 📄 **IEEE Conference Paper**: 3–4 page manuscript documenting methodology, mathematical formulations, and comparative findings.
-- 🐳 **Clean Code & Containerization**: OOP design with clean modular separation and Docker orchestration.
+- 📐 **Novel Custom Multi-Task Objective (Core Contribution)**: Formulated from scratch to eliminate gradient vanishing on microscopic bounding box overlaps.
+- 🚫 **100% Vanilla Training**: All model weights initialized strictly from scratch ($\mathcal{N}(0, \sigma^2)$) without external pretrained feature extractors.
+- 📊 **Leakage-Free Sequence Splitting**: Stratified 80/20 video sequence partitioning preventing temporal overlap between training and validation.
+- 🔬 **Systematic Ablation Benchmark**: 4-tier architectural progression isolating feature fusion, spatial attention, and stride mechanics.
+- 📄 **IEEE Conference Paper**: 3–4 page LaTeX manuscript presenting mathematical derivations and comparative findings.
 
 ---
 
@@ -46,11 +46,16 @@ graph TD
 - **Leakage-Free Splitting**: Sequence-aware regex grouping (`scripts/prepare_splits.py`) ensuring frames from the same video sequence are never split across train and validation sets.
 - **Augmentation Suite**: Multi-scale training, photometric color jitter, and random horizontal flipping.
 
-### 2. Custom Multi-Task Objective ($\mathcal{L}_{\text{hybrid}}$)
-- **Focal Loss ($\mathcal{L}_{\text{cls}}$)**: Suppresses overwhelming background easy negatives ($>99.8\%$ of spatial cells).
-- **Normalized Wasserstein Distance ($\mathcal{L}_{\text{NWD}}$)**: Models boxes as 2D Gaussian distributions for smooth geometric gradients on tiny sub-20px drones.
-- **Complete IoU ($\mathcal{L}_{\text{CIoU}}$)**: Enforces scale-invariant overlap, Euclidean center distance, and aspect ratio alignment.
-- **Centerness / Objectness Quality Loss ($\mathcal{L}_{\text{obj}}$)**: Mitigates low-quality boundary false positives.
+### 2. Custom Multi-Task Objective ($\mathcal{L}_{\text{hybrid}}$) — Core Contribution
+Traditional IoU regression metrics exhibit severe gradient degradation when applied to tiny objects ($<20\times20\text{ px}$): a minor 2-pixel spatial deviation causes IoU to plummet drastically, and non-overlapping boxes yield zero gradient ($\nabla \text{IoU} = 0$). To resolve this, our multi-task objective combines:
+
+- **Normalized Wasserstein Distance ($\mathcal{L}_{\text{NWD}}$)**: Models bounding boxes $B = (cx, cy, w, h)$ as 2D Gaussian distributions $\mathcal{N}(\boldsymbol{\mu}, \mathbf{\Sigma})$ with $\boldsymbol{\mu}=(cx, cy)$ and $\mathbf{\Sigma}=\text{diag}(w^2/4, h^2/4)$. By computing the optimal transport Wasserstein distance $W_2^2(\mathcal{N}_p, \mathcal{N}_g)$, NWD provides continuous, non-zero gradients even with zero spatial overlap:
+  $$\text{NWD}(\mathcal{N}_p, \mathcal{N}_g) = \exp\left(-\frac{\sqrt{W_2^2(\mathcal{N}_p, \mathcal{N}_g)}}{C}\right), \quad \mathcal{L}_{\text{NWD}} = 1 - \text{NWD}$$
+- **Complete IoU ($\mathcal{L}_{\text{CIoU}}$)**: Enforces scale-invariant bounding box overlap, center Euclidean distance, and aspect ratio alignment for medium/large drones:
+  $$\mathcal{L}_{\text{CIoU}} = 1 - \text{IoU} + \frac{\rho^2(b, b^{gt})}{c^2} + \alpha v$$
+- **Sigmoid Focal Loss ($\mathcal{L}_{\text{cls}}$)**: Suppresses overwhelming background easy negatives ($>99.8\%$ of spatial grid cells):
+  $$\mathcal{L}_{\text{cls}} = -\alpha_t (1 - p_t)^\gamma \log(p_t)$$
+- **Centerness Quality Loss ($\mathcal{L}_{\text{obj}}$)**: Binary cross-entropy penalizing low-quality detections far from target centers.
 
 $$\mathcal{L}_{\text{total}} = \lambda_{\text{cls}} \mathcal{L}_{\text{cls}} + \lambda_{\text{obj}} \mathcal{L}_{\text{obj}} + \lambda_{\text{reg}} \left( \alpha \mathcal{L}_{\text{CIoU}} + (1 - \alpha) \mathcal{L}_{\text{NWD}} \right)$$
 
