@@ -110,6 +110,50 @@ To provide empirical attribution for every design component, four models will be
   </tr>
 </table>
 
+## 📚 References & Citations
+
+```bibtex
+@article{wang2021normalized,
+  title={A Normalized Gaussian Wasserstein Distance for Tiny Object Detection},
+  author={Wang, Jinwang and Xu, Chang and Yang, Wen and Yu, Lei},
+  journal={arXiv preprint arXiv:2110.13389},
+  year={2021}
+}
+
+@inproceedings{zheng2020distance,
+  title={Distance-IoU Loss: Faster and Better Learning for Bounding Box Regression},
+  author={Zheng, Zhaohui and Wang, Ping and Liu, Wei and Li, Jinze and Ye, Rongguang and Ren, Dongwei},
+  booktitle={Proceedings of the AAAI Conference on Artificial Intelligence},
+  volume={34},
+  pages={12993--13000},
+  year={2020}
+}
+
+@inproceedings{lin2017focal,
+  title={Focal Loss for Dense Object Detection},
+  author={Lin, Tsung-Yi and Goyal, Priya and Girshick, Ross and He, Kaiming and Doll{\'a}r, Piotr},
+  booktitle={Proceedings of the IEEE International Conference on Computer Vision (ICCV)},
+  pages={2980--2988},
+  year={2017}
+}
+
+@inproceedings{tian2019fcos,
+  title={FCOS: Fully Convolutional One-Stage Object Detection},
+  author={Tian, Zhi and Shen, Chunhua and Chen, Hao and He, Tong},
+  booktitle={Proceedings of the IEEE/CVF International Conference on Computer Vision (ICCV)},
+  pages={9627--9636},
+  year={2019}
+}
+
+@inproceedings{woo2018cbam,
+  title={CBAM: Convolutional Block Attention Module},
+  author={Woo, Sanghyun and Park, Jongchan and Lee, Joon-Young and Kweon, In So},
+  booktitle={Proceedings of the European Conference on Computer Vision (ECCV)},
+  pages={3--19},
+  year={2018}
+}
+```
+
 ---
 
 ## 👤 Author & Contact

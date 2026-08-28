@@ -28,7 +28,6 @@ wheels/
 
 # Data & Datasets
 datasets/
-data/
 *.zip
 *.tar.gz
 *.tar
