@@ -59,7 +59,14 @@ Traditional IoU regression metrics exhibit severe gradient degradation when appl
 
 $$\mathcal{L}_{\text{total}} = \lambda_{\text{cls}} \mathcal{L}_{\text{cls}} + \lambda_{\text{obj}} \mathcal{L}_{\text{obj}} + \lambda_{\text{reg}} \left( \alpha \mathcal{L}_{\text{CIoU}} + (1 - \alpha) \mathcal{L}_{\text{NWD}} \right)$$
 
-### 3. Progressive Architectural Ablation Suite
+### 3. Backbone & Decoupled Detection Heads
+- **`ContextEnhancedBackbone`**: 4-stage CSPDarknet feature extractor with Cross-Stage Partial (`CSPBlock`) bottlenecks and Spatial Pyramid Pooling Fast (`SPPF`) to maintain multi-receptive context without parameter inflation.
+- **Decoupled Anchor-Free Heads (`DecoupledHead`)**: Separates classification and bounding box regression into dedicated convolutional subnets, preventing gradient interference between object localization and category classification:
+  - **Classification Branch ($H_{\text{cls}}$)**: Predicts drone class confidence logits supervised by Sigmoid Focal Loss.
+  - **Regression Branch ($H_{\text{reg}}$)**: Predicts stride-normalized bounding box offsets $(\Delta cx, \Delta cy, w, h)$.
+  - **Quality/Objectness Branch ($H_{\text{obj}}$)**: Predicts centerness quality score to down-weight low-quality peripheral boundary detections.
+
+### 4. Progressive Architectural Ablation Suite
 To provide empirical attribution for every design component, four models will be developed and benchmarked:
 
 | Model | Neck Architecture | Attention Mechanism | Feature Strides | Focus Area |
@@ -69,7 +76,7 @@ To provide empirical attribution for every design component, four models will be
 | **Model-C** (`model_c_attn`) | Bidirectional FPN + PAN | CBAM (Channel + Spatial) | $[8, 16, 32]$ | Saliency focus & aerial clutter suppression |
 | **Model-D** (`model_d_p2_ema`) | 4-Level High-Res FPNPAN4 | CBAM + Model EMA | $[4, 8, 16, 32]$ | High-resolution P2 stride-4 for sub-20px drones |
 
-### 4. Training Engine & Cloud Benchmarking
+### 5. Training Engine & Cloud Benchmarking
 - Mixed-precision (`torch.cuda.amp`) training loop with gradient clipping and cosine annealing learning rate scheduler.
 - Scale-aware `TargetAssigner` with center radius sampling.
 - Standardized evaluation measuring COCO-style $\text{mAP}@50$, $\text{mAP}@50:95$, Precision, Recall, inference latency (ms), and FPS throughput.
@@ -110,7 +117,36 @@ To provide empirical attribution for every design component, four models will be
   </tr>
 </table>
 
+---
+
 ## 📚 References & Citations
+
+1. **Normalized Gaussian Wasserstein Distance (NWD)**  
+   Wang, J., Xu, C., Yang, W., & Yu, L. (2021). *A Normalized Gaussian Wasserstein Distance for Tiny Object Detection*.  
+   📄 [arXiv:2110.13389 [cs.CV]](https://arxiv.org/abs/2110.13389)
+
+2. **Distance-IoU / Complete IoU (CIoU)**  
+   Zheng, Z., Wang, P., Liu, W., Li, J., Ye, R., & Ren, D. (2020). *Distance-IoU Loss: Faster and Better Learning for Bounding Box Regression*. *Proceedings of the AAAI Conference on Artificial Intelligence (AAAI 2020)*, 34(07), 12993–13000.  
+   📄 [arXiv:1911.08287 [cs.CV]](https://arxiv.org/abs/1911.08287) · 🔗 [AAAI Publication](https://ojs.aaai.org/index.php/AAAI/article/view/6999)
+
+3. **Focal Loss for Dense Object Detection**  
+   Lin, T.-Y., Goyal, P., Girshick, R., He, K., & Dollár, P. (2017). *Focal Loss for Dense Object Detection*. *IEEE International Conference on Computer Vision (ICCV 2017)*, 2980–2988.  
+   📄 [arXiv:1708.02002 [cs.CV]](https://arxiv.org/abs/1708.02002) · 🔗 [IEEE Xplore](https://ieeexplore.ieee.org/document/8237586)
+
+4. **FCOS: Fully Convolutional One-Stage Object Detection**  
+   Tian, Z., Shen, C., Chen, H., & He, T. (2019). *FCOS: Fully Convolutional One-Stage Object Detection*. *IEEE/CVF International Conference on Computer Vision (ICCV 2019)*, 9627–9636.  
+   📄 [arXiv:1904.01355 [cs.CV]](https://arxiv.org/abs/1904.01355) · 🔗 [IEEE Xplore](https://ieeexplore.ieee.org/document/9008803)
+
+5. **CSPNet: Cross Stage Partial Network**  
+   Wang, C.-Y., Liao, H.-Y. M., Wu, Y.-H., Chen, P.-Y., Hsieh, J.-W., & Yeh, I.-H. (2020). *CSPNet: A New Backbone that can Enhance Learning Capability of CNN*. *IEEE/CVF Conference on Computer Vision and Pattern Recognition Workshops (CVPRW 2020)*, 390–391.  
+   📄 [arXiv:1911.11929 [cs.CV]](https://arxiv.org/abs/1911.11929) · 🔗 [IEEE Xplore](https://ieeexplore.ieee.org/document/9150777)
+
+6. **CBAM: Convolutional Block Attention Module**  
+   Woo, S., Park, J., Lee, J.-Y., & Kweon, I. S. (2018). *CBAM: Convolutional Block Attention Module*. *Proceedings of the European Conference on Computer Vision (ECCV 2018)*, 3–19.  
+   📄 [arXiv:1807.06521 [cs.CV]](https://arxiv.org/abs/1807.06521) · 🔗 [SpringerLink](https://link.springer.com/chapter/10.1007/978-3-030-01234-2_1)
+
+<details>
+<summary><b>📋 Click to expand BibTeX format</b></summary>
 
 ```bibtex
 @article{wang2021normalized,
@@ -145,6 +181,14 @@ To provide empirical attribution for every design component, four models will be
   year={2019}
 }
 
+@inproceedings{wang2020cspnet,
+  title={CSPNet: A New Backbone that can Enhance Learning Capability of CNN},
+  author={Wang, Chien-Yao and Liao, Hong-Yuan Mark and Wu, Yueh-Hua and Chen, Ping-Yang and Hsieh, Jun-Wei and Yeh, I-Hau},
+  booktitle={Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition Workshops (CVPRW)},
+  pages={390--391},
+  year={2020}
+}
+
 @inproceedings{woo2018cbam,
   title={CBAM: Convolutional Block Attention Module},
   author={Woo, Sanghyun and Park, Jongchan and Lee, Joon-Young and Kweon, In So},
@@ -153,6 +197,8 @@ To provide empirical attribution for every design component, four models will be
   year={2018}
 }
 ```
+
+</details>
 
 ---
 
