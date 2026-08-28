@@ -1,0 +1,80 @@
+# ============================================================
+# docker-compose.yml — Drone Detector Orchestration
+# ============================================================
+# Services:
+#   train    : Run a full training job
+#   evaluate : Run evaluation on a checkpoint
+#   infer    : Run inference on a single image
+#
+# Usage:
+#   # Build container
+#   docker compose build
+#
+#   # Train any model variant (e.g. Model-D)
+#   docker compose run --rm train \
+#       python train.py --config configs/model_d_p2_ema.yaml
+#
+#   # Evaluate
+#   docker compose run --rm evaluate \
+#       python evaluate.py \
+#           --config configs/model_d_p2_ema.yaml \
+#           --checkpoint runs/model_d_p2_ema/best.pth
+#
+#   # Inference
+#   docker compose run --rm infer \
+#       python infer.py \
+#           --config configs/model_d_p2_ema.yaml \
+#           --checkpoint runs/model_d_p2_ema/best.pth \
+#           --image /workspace/datasets/sample/image.png
+# ============================================================
+
+version: "3.9"
+
+x-base-service: &base-service
+  build:
+    context: ..
+    dockerfile: docker/Dockerfile
+  image: vanilla-drone-detector:latest
+  volumes:
+    # Mount source code (hot-reload edits without rebuilding)
+    - ..:/workspace
+    # Mount dataset separately (keeps container layer small)
+    - ../datasets:/workspace/datasets:ro
+    # Persist run outputs and checkpoints
+    - ../runs:/workspace/runs
+  environment:
+    - WANDB_API_KEY=${WANDB_API_KEY:-}   # Pass W&B key from host
+    - CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-0}
+  deploy:
+    resources:
+      reservations:
+        devices:
+          - driver: nvidia
+            count: all
+            capabilities: [gpu]
+
+services:
+  # Training service
+  train:
+    <<: *base-service
+    command: >
+      python train.py
+      --config configs/model_c_attn.yaml
+
+  # Evaluation service
+  evaluate:
+    <<: *base-service
+    command: >
+      python evaluate.py
+      --config configs/model_c_attn.yaml
+      --checkpoint runs/model_c_attn/best.pth
+
+  # Inference service
+  infer:
+    <<: *base-service
+    command: >
+      python infer.py
+      --config configs/model_c_attn.yaml
+      --checkpoint runs/model_c_attn/best.pth
+      --image datasets/sample/augmented_raw_dataset_city_foggy_city_foggy_0_1_sequence.4_step0.camera.png
+      --output runs/detection_result.jpg

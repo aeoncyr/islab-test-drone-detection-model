@@ -1,0 +1,59 @@
+# Python & Bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.pyd
+
+# Virtual Environments
+.venv/
+env/
+venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Data & Datasets
+datasets/
+data/
+*.zip
+*.tar.gz
+*.tar
+
+# Model Checkpoints & Large Artifacts
+runs/
+*.pth
+*.pt
+*.onnx
+*.engine
+*.bin
+
+# Logs & Monitoring
+wandb/
+*.log
+
+# Workspace, IDE & Local Notes
+.creds/
+.context/
+.study/
+.agents/
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+scratch/
