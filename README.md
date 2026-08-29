@@ -66,8 +66,46 @@ $$\mathcal{L}_{\text{total}} = \lambda_{\text{cls}} \mathcal{L}_{\text{cls}} + \
   - **Regression Branch ($H_{\text{reg}}$)**: Predicts stride-normalized bounding box offsets $(\Delta cx, \Delta cy, w, h)$.
   - **Quality/Objectness Branch ($H_{\text{obj}}$)**: Predicts centerness quality score to down-weight low-quality peripheral boundary detections.
 
-### 4. Progressive Architectural Ablation Suite
-To provide empirical attribution for every design component, four models will be developed and benchmarked:
+### 4. Modular Detector Assembly & Neck Architectures
+The full detector is assembled in `VanillaDroneDetector` (`src/models/detector.py`), featuring a dynamic registry pattern (`NECK_REGISTRY`) that decouples the backbone, feature neck, and prediction heads:
+
+```text
+Input Image (3 x 416 x 416)
+        │
+        ▼
+┌─────────────────────────────────────────────────────────────┐
+│  ContextEnhancedBackbone (CSPDarknet + SPPF)                │
+│  ├── C2: Stride 4   (104 x 104, 32 channels)                │
+│  ├── C3: Stride 8   (52 x 52,   64 channels)                │
+│  ├── C4: Stride 16  (26 x 26,  128 channels)                │
+│  └── C5: Stride 32  (13 x 13,  256 channels) + SPPF         │
+└─────────────────────────────────────────────────────────────┘
+        │
+        ▼
+┌─────────────────────────────────────────────────────────────┐
+│  Feature Aggregation Neck                                   │
+│  ├── Model-A: Top-Down FPN (Lateral 1x1 + Upsample)         │
+│  └── Model-B: Bidirectional FPN + PAN (Bottom-Up Conv 3x3)  │
+└─────────────────────────────────────────────────────────────┘
+        │
+        ▼
+┌─────────────────────────────────────────────────────────────┐
+│  Decoupled Multi-Scale Detection Heads                      │
+│  ├── Head P3 (Stride 8,  52 x 52):  Tiny targets            │
+│  ├── Head P4 (Stride 16, 26 x 26):  Medium targets          │
+│  └── Head P5 (Stride 32, 13 x 13):  Large targets           │
+└─────────────────────────────────────────────────────────────┘
+```
+
+- **Model-A Baseline (`configs/model_a_fpn.yaml`)**:
+  - Employs a classical top-down **Feature Pyramid Network (FPN)**.
+  - Propagates rich semantic features from deep layers ($C_5$) to shallow layers ($C_3$) via $1\times1$ lateral convolutions and $2\times$ nearest upsampling.
+- **Model-B Enhancement (`configs/model_b_pan.yaml`)**:
+  - Incorporates a bidirectional **Path Aggregation Network (PAN)**.
+  - Adds a bottom-up feature pyramid using stride-2 $3\times3$ convolutions, shortening the information path between low-level spatial localization cues and high-level semantics to boost small object boundary precision.
+
+### 5. Progressive Architectural Ablation Suite
+To provide empirical attribution for every design component, four models are developed and benchmarked:
 
 | Model | Neck Architecture | Attention Mechanism | Feature Strides | Focus Area |
 | :--- | :--- | :--- | :--- | :--- |
@@ -76,7 +114,7 @@ To provide empirical attribution for every design component, four models will be
 | **Model-C** (`model_c_attn`) | Bidirectional FPN + PAN | CBAM (Channel + Spatial) | $[8, 16, 32]$ | Saliency focus & aerial clutter suppression |
 | **Model-D** (`model_d_p2_ema`) | 4-Level High-Res FPNPAN4 | CBAM + Model EMA | $[4, 8, 16, 32]$ | High-resolution P2 stride-4 for sub-20px drones |
 
-### 5. Training Engine & Cloud Benchmarking
+### 6. Training Engine & Cloud Benchmarking
 - Mixed-precision (`torch.cuda.amp`) training loop with gradient clipping and cosine annealing learning rate scheduler.
 - Scale-aware `TargetAssigner` with center radius sampling.
 - Standardized evaluation measuring COCO-style $\text{mAP}@50$, $\text{mAP}@50:95$, Precision, Recall, inference latency (ms), and FPS throughput.

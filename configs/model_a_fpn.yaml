@@ -1,0 +1,58 @@
+# ============================================================
+# Model-A: CSP Backbone + FPN Neck + Decoupled Head (Baseline)
+# ============================================================
+# This is the baseline architecture. No bidirectional neck,
+# no attention. Acts as the anchor for ablation comparison.
+
+model:
+  name: model_a_fpn
+  num_classes: 1
+  base_channels: 32
+  neck_type: fpn          # "fpn" | "fpnpan"
+  use_cbam: false
+
+data:
+  img_dir: datasets/obj_det_base
+  train_manifest: splits/train.txt
+  val_manifest: splits/val.txt
+  input_size: 416
+  strides: [8, 16, 32]
+  num_workers: 4
+
+augmentation:
+  random_hflip: true
+  color_jitter:
+    brightness: 0.4
+    contrast: 0.4
+    saturation: 0.4
+    hue: 0.1
+  multi_scale: false      # Disabled for baseline stability
+
+training:
+  epochs: 100
+  batch_size: 8
+  lr: 0.001
+  weight_decay: 0.0001
+  warmup_epochs: 3
+  grad_clip_norm: 10.0
+  amp: true               # Automatic Mixed Precision (GPU only)
+  save_dir: runs/model_a_fpn
+  save_interval: 10       # Save checkpoint every N epochs
+
+loss:
+  lambda_cls: 1.0
+  lambda_reg: 2.0
+  lambda_obj: 1.0
+  alpha_hybrid: 0.5       # Weight: CIoU vs NWD
+  focal_alpha: 0.25
+  focal_gamma: 2.0
+  nwd_constant: 12.8
+
+scheduler:
+  type: cosine            # "cosine" | "step"
+  eta_min: 1.0e-6
+
+wandb:
+  enabled: true
+  project: vanilla-drone-detector
+  run_name: model_a_fpn

@@ -1,0 +1,58 @@
+# ============================================================
+# Model-B: CSP Backbone + FPN+PAN Neck + Decoupled Head
+# ============================================================
+# Upgrades Model-A with a bidirectional neck (PANet style).
+# Bottom-up path augmentation strengthens small object features.
+
+model:
+  name: model_b_pan
+  num_classes: 1
+  base_channels: 32
+  neck_type: fpnpan       # "fpn" | "fpnpan"
+  use_cbam: false
+
+data:
+  img_dir: datasets/obj_det_base
+  train_manifest: splits/train.txt
+  val_manifest: splits/val.txt
+  input_size: 416
+  strides: [8, 16, 32]
+  num_workers: 4
+
+augmentation:
+  random_hflip: true
+  color_jitter:
+    brightness: 0.4
+    contrast: 0.4
+    saturation: 0.4
+    hue: 0.1
+  multi_scale: true       # Enable multi-scale training for PAN
+
+training:
+  epochs: 100
+  batch_size: 8
+  lr: 0.001
+  weight_decay: 0.0001
+  warmup_epochs: 3
+  grad_clip_norm: 10.0
+  amp: true
+  save_dir: runs/model_b_pan
+  save_interval: 10
+
+loss:
+  lambda_cls: 1.0
+  lambda_reg: 2.0
+  lambda_obj: 1.0
+  alpha_hybrid: 0.5
+  focal_alpha: 0.25
+  focal_gamma: 2.0
+  nwd_constant: 12.8
+
+scheduler:
+  type: cosine
+  eta_min: 1.0e-6
+
+wandb:
+  enabled: true
+  project: vanilla-drone-detector
+  run_name: model_b_pan
