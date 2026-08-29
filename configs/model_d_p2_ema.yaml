@@ -1,0 +1,60 @@
+# ============================================================
+# Model-D: 4-Level High-Res P2-P5 Neck + CBAM + Model EMA
+# ============================================================
+# Advanced architecture featuring a Stride-4 (P2) high-resolution
+# detection level for sub-20px drones, CBAM attention, and Model EMA.
+
+model:
+  name: model_d_p2_ema
+  num_classes: 1
+  base_channels: 32
+  neck_type: fpnpan4      # "fpn" | "fpnpan" | "fpnpan4"
+  use_cbam: true          # CBAM inserted after each CSP block
+  use_ema: true           # Shadow weight averaging for validation & checkpointing
+
+data:
+  img_dir: datasets/obj_det_base
+  train_manifest: splits/train.txt
+  val_manifest: splits/val.txt
+  input_size: 416
+  strides: [4, 8, 16, 32] # 4 pyramid scales (104x104, 52x52, 26x26, 13x13 at 416px)
+  num_workers: 2
+
+augmentation:
+  random_hflip: true
+  color_jitter:
+    brightness: 0.4
+    contrast: 0.4
+    saturation: 0.4
+    hue: 0.1
+  multi_scale: false
+
+training:
+  epochs: 50
+  batch_size: 16
+  lr: 0.001
+  weight_decay: 0.0001
+  warmup_epochs: 3
+  grad_clip_norm: 10.0
+  amp: true
+  use_ema: true
+  save_dir: runs/model_d_p2_ema
+  save_interval: 10
+
+loss:
+  lambda_cls: 1.0
+  lambda_reg: 2.0
+  lambda_obj: 1.0
+  alpha_hybrid: 0.5
+  focal_alpha: 0.25
+  focal_gamma: 2.0
+  nwd_constant: 12.8
+
+scheduler:
+  type: cosine
+  eta_min: 1.0e-6
+
+wandb:
+  enabled: false
+  project: vanilla-drone-detector
+  run_name: model_d_p2_ema

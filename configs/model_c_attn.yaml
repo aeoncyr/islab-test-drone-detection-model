@@ -1,0 +1,57 @@
+# ============================================================
+# Model-C: CSP+CBAM Backbone + FPN+PAN Neck + Decoupled Head
+# ============================================================
+# Architecture with CBAM attention in backbone stages and FPN+PAN neck.
+
+model:
+  name: model_c_attn
+  num_classes: 1
+  base_channels: 32
+  neck_type: fpnpan       # "fpn" | "fpnpan"
+  use_cbam: true          # CBAM inserted after each CSP block
+
+data:
+  img_dir: datasets/obj_det_base
+  train_manifest: splits/train.txt
+  val_manifest: splits/val.txt
+  input_size: 416
+  strides: [8, 16, 32]
+  num_workers: 4
+
+augmentation:
+  random_hflip: true
+  color_jitter:
+    brightness: 0.4
+    contrast: 0.4
+    saturation: 0.4
+    hue: 0.1
+  multi_scale: true
+
+training:
+  epochs: 100
+  batch_size: 8
+  lr: 0.001
+  weight_decay: 0.0001
+  warmup_epochs: 5        # Longer warmup for the attention variant
+  grad_clip_norm: 10.0
+  amp: true
+  save_dir: runs/model_c_attn
+  save_interval: 10
+
+loss:
+  lambda_cls: 1.0
+  lambda_reg: 2.0
+  lambda_obj: 1.0
+  alpha_hybrid: 0.5
+  focal_alpha: 0.25
+  focal_gamma: 2.0
+  nwd_constant: 12.8
+
+scheduler:
+  type: cosine
+  eta_min: 1.0e-6
+
+wandb:
+  enabled: true
+  project: vanilla-drone-detector
+  run_name: model_c_attn
