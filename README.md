@@ -122,11 +122,81 @@ To provide empirical attribution for every design component, four models are dev
 | **Model-C** (`model_c_attn`) | Bidirectional FPN + PAN | CBAM (Channel + Spatial) | $[8, 16, 32]$ | Saliency focus & aerial clutter suppression |
 | **Model-D** (`model_d_p2_ema`) | 4-Level High-Res FPNPAN4 | CBAM + Model EMA | $[4, 8, 16, 32]$ | High-resolution P2 stride-4 for sub-20px drones |
 
-### 6. Training Engine & Cloud Benchmarking
-- Mixed-precision (`torch.cuda.amp`) training loop with gradient clipping and cosine annealing learning rate scheduler.
-- Scale-aware `TargetAssigner` with center radius sampling.
-- Standardized evaluation measuring COCO-style $\text{mAP}@50$, $\text{mAP}@50:95$, Precision, Recall, inference latency (ms), and FPS throughput.
-- Comparative baseline benchmarks against standard reference models: **YOLOv8-nano (3.2M)**, **YOLOv8-small (11.2M)**, and **RT-DETR-L (32.0M)**.
+### 6. Training Engine, Target Assigner & Evaluation Pipeline
+
+The training and evaluation infrastructure is contained within `src/engine/` and orchestrated via standalone CLI entrypoints:
+
+- **Anchor-Free Target Assigner (`src/engine/target_assigner.py`)**:
+  - **Scale-Aware Pyramid Assignment**: Dynamically allocates ground-truth bounding boxes to pyramid levels based on spatial scale ranges ($P_2: [0, 64]$, $P_3: [64, 128]$, $P_4: [128, 256]$, $P_5: [256, \infty]$).
+  - **Center-Radius Sampling**: Employs an adjustable center radius ($r = 1.5$) to select positive candidate grid cells around target centers, ensuring rich gradient signals even when targets do not align precisely with single grid centers.
+  - **Sub-Pixel Coordinate Normalization**: Encodes offsets $(l, t, r, b)$ relative to grid stride anchors for scale-invariant regression.
+- **Mixed-Precision Training Engine (`src/engine/trainer.py`)**:
+  - **Automatic Mixed Precision (AMP)**: Leverages `torch.cuda.amp.autocast()` and `GradScaler` for $2\times$ faster execution and half the VRAM footprint.
+  - **Learning Rate Schedule**: 3-epoch linear warmup followed by Cosine Annealing decay down to $\eta_{min} = 10^{-6}$.
+  - **Gradient Stabilization**: Implements gradient norm clipping ($\|\mathbf{g}\| \le 10.0$) and Model EMA shadow parameter updates after every optimizer step.
+- **COCO Evaluation Suite (`src/engine/evaluator.py`)**:
+  - Computes standard 10-threshold COCO metrics ($\text{IoU} \in [0.50 : 0.05 : 0.95]$) for strict $\text{mAP@50:95}$, $\text{mAP@50}$, Precision, and Recall.
+  - Measures CUDA-synchronized inference latency (ms) and real-time frames per second (FPS).
+
+---
+
+## 🚀 Quickstart & Execution Guide
+
+### 1. Local / Virtual Environment Setup
+```bash
+# Clone repository and install dependencies
+git clone https://github.com/aeoncyr/islab-test-drone-detection-model.git
+cd islab-test-drone-detection-model
+pip install -r requirements.txt
+
+# Run self-contained pipeline test
+python test_pipeline.py
+```
+
+### 2. Training Models from Scratch
+```bash
+# Train the proposed Model-D (P2-P5 + CBAM + EMA)
+python train.py --config configs/model_d_p2_ema.yaml
+
+# Train Model-B (FPN+PAN) or Model-A (FPN Baseline)
+python train.py --config configs/model_b_pan.yaml
+python train.py --config configs/model_a_fpn.yaml
+```
+
+### 3. Evaluation & Checkpoint Validation
+```bash
+# Evaluate a trained checkpoint on the validation split
+python evaluate.py \
+    --config configs/model_d_p2_ema.yaml \
+    --checkpoint runs/model_d_p2_ema/best.pth \
+    --val_manifest splits/val.txt
+```
+
+### 4. Visual Detection Inference
+```bash
+# Run inference on a test drone image
+python infer.py \
+    --config configs/model_d_p2_ema.yaml \
+    --checkpoint runs/model_d_p2_ema/best.pth \
+    --image datasets/sample/test_drone.png \
+    --conf_thresh 0.35 \
+    --output runs/detection_result.jpg
+```
+
+### 5. Docker Orchestration
+```bash
+# Build the training container
+docker compose build
+
+# Train Model-D inside Docker
+docker compose run --rm train
+
+# Multi-GPU DistributedDataParallel (DDP)
+docker compose run --rm train-ddp
+
+# Run evaluation inside Docker
+docker compose run --rm evaluate
+```
 
 ---
 

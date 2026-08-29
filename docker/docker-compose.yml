@@ -2,30 +2,27 @@
 # docker-compose.yml — Drone Detector Orchestration
 # ============================================================
 # Services:
-#   train    : Run a full training job
-#   evaluate : Run evaluation on a checkpoint
-#   infer    : Run inference on a single image
+#   train     : Train the best model (Model-D)
+#   train-ddp : Multi-GPU DistributedDataParallel training
+#   evaluate  : Run evaluation and compute mAP metrics
+#   infer     : Run visual bounding box inference on an image
+#   benchmark : Run master benchmark suite against all models
 #
 # Usage:
-#   # Build container
+#   # Build container image
 #   docker compose build
 #
-#   # Train any model variant (e.g. Model-D)
-#   docker compose run --rm train \
-#       python train.py --config configs/model_d_p2_ema.yaml
+#   # Train best model (Model-D)
+#   docker compose run --rm train
 #
-#   # Evaluate
-#   docker compose run --rm evaluate \
-#       python evaluate.py \
-#           --config configs/model_d_p2_ema.yaml \
-#           --checkpoint runs/model_d_p2_ema/best.pth
+#   # Multi-GPU DDP training (e.g. 2 GPUs)
+#   docker compose run --rm train-ddp
 #
-#   # Inference
-#   docker compose run --rm infer \
-#       python infer.py \
-#           --config configs/model_d_p2_ema.yaml \
-#           --checkpoint runs/model_d_p2_ema/best.pth \
-#           --image /workspace/datasets/sample/image.png
+#   # Evaluate Model-D checkpoint
+#   docker compose run --rm evaluate
+#
+#   # Run visual detection on test image
+#   docker compose run --rm infer
 # ============================================================
 
 version: "3.9"
@@ -38,12 +35,12 @@ x-base-service: &base-service
   volumes:
     # Mount source code (hot-reload edits without rebuilding)
     - ..:/workspace
-    # Mount dataset separately (keeps container layer small)
+    # Mount dataset (read-only)
     - ../datasets:/workspace/datasets:ro
-    # Persist run outputs and checkpoints
+    # Persist run checkpoints, logs, and plots
     - ../runs:/workspace/runs
   environment:
-    - WANDB_API_KEY=${WANDB_API_KEY:-}   # Pass W&B key from host
+    - WANDB_API_KEY=${WANDB_API_KEY:-}   # Pass W&B key from host if available
     - CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-0}
   deploy:
     resources:
@@ -54,27 +51,44 @@ x-base-service: &base-service
             capabilities: [gpu]
 
 services:
-  # Training service
+  # 1. Standard Single-GPU Training (Model-D Best Architecture)
   train:
     <<: *base-service
     command: >
       python train.py
-      --config configs/model_c_attn.yaml
+      --config configs/model_d_p2_ema.yaml
 
-  # Evaluation service
+  # 2. Multi-GPU DistributedDataParallel (DDP) Training
+  train-ddp:
+    <<: *base-service
+    command: >
+      python -m torch.distributed.run
+      --nproc_per_node=2
+      --master_port=29500
+      train.py
+      --config configs/model_d_p2_ema.yaml
+
+  # 3. Model Evaluation Service
   evaluate:
     <<: *base-service
     command: >
       python evaluate.py
-      --config configs/model_c_attn.yaml
-      --checkpoint runs/model_c_attn/best.pth
+      --config configs/model_d_p2_ema.yaml
+      --checkpoint runs/model_d_p2_ema/best.pth
 
-  # Inference service
+  # 4. Visual Inference Service
   infer:
     <<: *base-service
     command: >
       python infer.py
-      --config configs/model_c_attn.yaml
-      --checkpoint runs/model_c_attn/best.pth
+      --config configs/model_d_p2_ema.yaml
+      --checkpoint runs/model_d_p2_ema/best.pth
       --image datasets/sample/augmented_raw_dataset_city_foggy_city_foggy_0_1_sequence.4_step0.camera.png
       --output runs/detection_result.jpg
+
+  # 5. Master Benchmark & Comparison Table Generation
+  benchmark:
+    <<: *base-service
+    command: >
+      python benchmark.py
+

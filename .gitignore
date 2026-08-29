@@ -45,6 +45,8 @@ wandb/
 *.log
 
 # Workspace, IDE & Local Notes
+.env
+*.env
 .creds/
 .context/
 .study/
