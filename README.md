@@ -205,9 +205,13 @@ islab-test-drone-detection-model/
 
 ### 1. Local Python Environment Setup
 ```bash
-# Clone repository
+# Clone repository with Git LFS for trained model checkpoints
 git clone https://github.com/aeoncyr/islab-test-drone-detection-model.git
 cd islab-test-drone-detection-model
+
+# Pull Git LFS model checkpoint weights
+git lfs install
+git lfs pull
 
 # Create and activate virtual environment
 python -m venv .venv
