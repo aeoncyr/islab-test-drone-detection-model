@@ -92,20 +92,29 @@ where $\Omega$ denotes the set of all spatial grid cells across all pyramid leve
   <em>Figure 2: Mathematical dynamics and scale sensitivity analysis of the proposed Hybrid Multi-Task Loss Objective. (a) Positional deviation response comparing standard IoU gradient collapse IoU = 0 on microscopic 12x12px targets against smooth, continuous optimization gradients provided by Normalized Gaussian Wasserstein Distance (NWD). (b) 2D continuous Gaussian modeling of bounding boxes with second-order Wasserstein transport distance. (c) Convergence dynamics of individual loss components across 50 training epochs.</em>
 </p>
 
-### Mathematical Formulation of Loss Components:
-1. **Sigmoid Focal Classification Loss ($\mathcal{L}_{cls}$)**:
-   $$\mathcal{L}_{cls}^{(i)} = - \alpha_t (1 - p_t^{(i)})^\gamma \log(p_t^{(i)}), \quad \gamma = 2.0, \ \alpha = 0.25$$
-2. **Centerness Quality Loss ($\mathcal{L}_{obj}$)**:
-   $$\mathcal{L}_{obj}^{(i)} = - \left[ q_i^* \log(\hat{q}_i) + (1 - q_i^*) \log(1 - \hat{q}_i) \right], \quad q_i^* = \sqrt{\frac{\min(l^*, r^*)}{\max(l^*, r^*)} \cdot \frac{\min(t^*, b^*)}{\max(t^*, b^*)}}$$
-3. **Hybrid CIoU-NWD Geometric Regression Loss ($\mathcal{L}_{reg}$)**:
-   $$\mathcal{L}_{reg} = \omega \cdot \mathcal{L}_{CIoU} + (1 - \omega) \cdot \mathcal{L}_{NWD}, \quad \omega = 0.5$$
-   - **Complete-IoU ($\mathcal{L}_{CIoU}$)**:
-     $$\mathcal{L}_{CIoU} = 1 - \text{IoU} + \frac{\rho^2(\mathbf{b}, \mathbf{b}^{gt})}{c^2} + \alpha_v v, \quad v = \frac{4}{\pi^2}\left(\arctan\frac{w^{gt}}{h^{gt}} - \arctan\frac{w}{h}\right)^2$$
-   - **Normalized Wasserstein Distance ($\mathcal{L}_{NWD}$)**:
-     $$W_2^2(\mathbf{b}, \mathbf{b}^{gt}) = (cx - cx^{gt})^2 + (cy - cy^{gt})^2 + \frac{(w - w^{gt})^2 + (h - h^{gt})^2}{4}$$
-     $$\mathcal{L}_{NWD} = 1 - \exp\left( - \frac{\sqrt{W_2^2}}{C} \right), \quad C = 12.8$$
-   - **Analytical Gradient Non-Vanishing Guarantee**:
-     $$\frac{\partial \mathcal{L}_{NWD}}{\partial W_2^2} = \frac{1}{2C \sqrt{W_2^2}} \exp\left( - \frac{\sqrt{W_2^2}}{C} \right) > 0 \quad \forall W_2^2 \in (0, \infty)$$
+### Mathematical Formulation of Loss Components
+
+#### 1. Sigmoid Focal Classification Loss ($\mathcal{L}_{cls}$)
+$$\mathcal{L}_{cls}^{(i)} = - \alpha_t (1 - p_t^{(i)})^\gamma \log(p_t^{(i)}), \quad \gamma = 2.0, \quad \alpha = 0.25$$
+
+#### 2. Centerness Quality Loss ($\mathcal{L}_{obj}$)
+$$\mathcal{L}_{obj}^{(i)} = - \left[ q_i^* \log(\hat{q}_i) + (1 - q_i^*) \log(1 - \hat{q}_i) \right]$$
+
+$$q_i^* = \sqrt{\frac{\min(l^*, r^*)}{\max(l^*, r^*)} \times \frac{\min(t^*, b^*)}{\max(t^*, b^*)}}$$
+
+#### 3. Hybrid CIoU-NWD Geometric Regression Loss ($\mathcal{L}_{reg}$)
+$$\mathcal{L}_{reg} = \omega \cdot \mathcal{L}_{CIoU} + (1 - \omega) \cdot \mathcal{L}_{NWD}, \quad \omega = 0.5$$
+
+- **Complete-IoU ($\mathcal{L}_{CIoU}$)**:
+$$\mathcal{L}_{CIoU} = 1 - \text{IoU} + \frac{\rho^2(\mathbf{b}, \mathbf{b}^{gt})}{c^2} + \alpha_v v, \quad v = \frac{4}{\pi^2}\left(\arctan\frac{w^{gt}}{h^{gt}} - \arctan\frac{w}{h}\right)^2$$
+
+- **Normalized Wasserstein Distance ($\mathcal{L}_{NWD}$)**:
+$$W_2^2(\mathbf{b}, \mathbf{b}^{gt}) = (cx - cx^{gt})^2 + (cy - cy^{gt})^2 + \frac{(w - w^{gt})^2 + (h - h^{gt})^2}{4}$$
+
+$$\mathcal{L}_{NWD} = 1 - \exp\left( - \frac{\sqrt{W_2^2}}{C} \right), \quad C = 12.8$$
+
+- **Analytical Gradient Non-Vanishing Guarantee**:
+$$\frac{\partial \mathcal{L}_{NWD}}{\partial W_2^2} = \frac{1}{2C \sqrt{W_2^2}} \exp\left( - \frac{\sqrt{W_2^2}}{C} \right) > 0 \quad \forall W_2^2 \in (0, \infty)$$
 
 ---
 
@@ -115,7 +124,7 @@ where $\Omega$ denotes the set of all spatial grid cells across all pyramid leve
 Evaluated on a sequence-partitioned, temporal-leakage-free UAV aerial dataset (1,898 train / 502 val frames, input resolution $416 \times 416$, 50 epochs, NVIDIA Tesla T4 GPU):
 
 | Model Architecture | Paradigm | Pre-trained Weights | Params (M) | mAP@50 (%) | mAP@50:95 (%) | Precision (%) | Recall (%) | FPS | Latency (ms) |
-| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
 | **Model-A (Baseline)** | Edge CNN | **None (From Scratch)** | 13.25M | 90.29% | 49.76% | 97.83% | 94.22% | 135.7 | 7.37 ms |
 | **Model-B (FPN+PAN)** | Edge CNN | **None (From Scratch)** | 14.57M | 90.47% | 51.02% | 97.84% | 94.82% | **170.0** | **5.88 ms** |
 | **Model-C (FPN+PAN+CBAM)** | Edge CNN | **None (From Scratch)** | 14.62M | 90.51% | 49.93% | **98.05%** | 95.02% | 154.1 | 6.49 ms |
