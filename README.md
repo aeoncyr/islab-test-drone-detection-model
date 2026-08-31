@@ -1,5 +1,5 @@
 # 🛰️ Edge-Native UAV Drone Detection From Scratch
-### An Anchor-Free Architecture with Multi-Scale $P_2$ Fusion and Hybrid Wasserstein Optimization
+### An Anchor-Free Architecture with Multi-Scale P2 Fusion and Hybrid Wasserstein Optimization
 
 <p align="center">
   <img src="https://img.shields.io/badge/Author-Fajar%20Wira%20Adikusuma-blue?style=for-the-badge&logo=github&logoColor=white" alt="Author" />
@@ -20,11 +20,11 @@
 This repository contains the complete implementation, benchmark suite, and research manuscript for an **edge-native, anchor-free UAV drone detection architecture trained from scratch** without transfer learning or external vision weights (such as ImageNet or Microsoft COCO).
 
 ### 🎯 Key Engineering & Scientific Highlights
-- 🚫 **Zero Pre-trained Weights**: Engineered and trained strictly from random Gaussian initialization ($\mathcal{N}(0, \sigma^2)$), enabling deployment in secure, air-gapped defense appliances and proprietary drone payloads where external weights are prohibited.
-- 📐 **Novel Custom Multi-Task Objective ($\mathcal{L}_{total}$)**: Unites **Normalized Gaussian Wasserstein Distance (NWD)** for scale-insensitive micro-drone regression, **Complete-IoU (CIoU)** for aspect ratio preservation, **Sigmoid Focal Loss** for $>99.8\%$ background suppression, and **Centerness BCE** for boundary false-positive filtering.
-- 🔬 **Dedicated High-Resolution $P_2$ Stride-4 Neck ($104 \times 104$)**: A 4-level bidirectional feature pyramid ($P_2, P_3, P_4, P_5$) coupled with dual-domain **Convolutional Block Attention Modules (CBAM)** to preserve sub-20px micro-drone edge signatures.
-- ⚡ **Model Exponential Moving Average (EMA)**: Polyak-Ruppert parameter smoothing ($\beta = 0.9999$) acting as a temporal ensemble over $10,000$ iterations, preventing optimization collapse and eliminating stochastic mini-batch oscillations.
-- 🛡️ **Superior Airspace Security Recall**: Our top model (**Model-D**) achieves **90.54% mAP@50**, **56.27% mAP@50:95**, and an exceptional **96.02% Target Recall** at 60.1 FPS—matching the strict $\text{mAP@50:95}$ of COCO-pretrained YOLOv8-small (56.34\%) and cutting the missed intruder rate in half (from $8.12\%$ down to $3.98\%$).
+- 🚫 **Zero Pre-trained Weights**: Engineered and trained strictly from random Gaussian initialization (`N(0, σ²)`), enabling deployment in secure, air-gapped defense appliances and proprietary drone payloads where external weights are prohibited.
+- 📐 **Novel Custom Multi-Task Objective (L_total)**: Unites **Normalized Gaussian Wasserstein Distance (NWD)** for scale-insensitive micro-drone regression, **Complete-IoU (CIoU)** for aspect ratio preservation, **Sigmoid Focal Loss** for >99.8% background suppression, and **Centerness BCE** for boundary false-positive filtering.
+- 🔬 **Dedicated High-Resolution P2 Stride-4 Neck (104 × 104)**: A 4-level bidirectional feature pyramid (P2, P3, P4, P5) coupled with dual-domain **Convolutional Block Attention Modules (CBAM)** to preserve sub-20px micro-drone edge signatures.
+- ⚡ **Model Exponential Moving Average (EMA)**: Polyak-Ruppert parameter smoothing (β = 0.9999) acting as a temporal ensemble over 10,000 iterations, preventing optimization collapse and eliminating stochastic mini-batch oscillations.
+- 🛡️ **Superior Airspace Security Recall**: Our top model (**Model-D**) achieves **90.54% mAP@50**, **56.27% mAP@50:95**, and an exceptional **96.02% Target Recall** at 60.1 FPS—matching the strict mAP@50:95 of COCO-pretrained YOLOv8-small (56.34%) and cutting the missed intruder rate in half (from 8.12% down to 3.98%).
 
 ---
 
@@ -80,7 +80,7 @@ Input Image (3 × 416 × 416)
 
 ## 📐 Custom Multi-Task Mathematical Objective
 
-Standard Intersection-over-Union (IoU) regression fails catastrophically on microscopic targets ($<20 \times 20\text{ px}$): a 2-pixel positional jitter causes IoU to drop sharply to zero ($\nabla \text{IoU} = \mathbf{0}$), causing gradient backpropagation to vanish during random weight initialization. To resolve this, our composite multi-task objective is formulated as:
+Standard Intersection-over-Union (IoU) regression fails catastrophically on microscopic targets (<20 × 20 px): a 2-pixel positional jitter causes IoU to drop sharply to zero (∇IoU = 0), causing gradient backpropagation to vanish during random weight initialization. To resolve this, our composite multi-task objective is formulated as:
 
 $$\mathcal{L}_{total} = \frac{1}{N_{pos}} \left[ \sum_{i \in \Omega} \lambda_{cls} \mathcal{L}_{cls}^{(i)} + \sum_{i \in \Omega_{pos}} \lambda_{reg} \mathcal{L}_{reg}^{(i)} + \sum_{i \in \Omega} \lambda_{obj} \mathcal{L}_{obj}^{(i)} \right]$$
 
@@ -134,9 +134,9 @@ Evaluated on a sequence-partitioned, temporal-leakage-free UAV aerial dataset (1
 
 ### 2. Architectural Ablation Analysis & Convergence Curves
 The 4-tier ablation isolates the empirical contribution of each architectural module:
-- **Model-A $\rightarrow$ Model-B (PANet Bottom-Up Fusion)**: Boosts strict $\text{mAP@50:95}$ from $49.76\%$ to $51.02\%$ (+1.26\%) and increases throughput to 170.0 FPS.
-- **Model-B $\rightarrow$ Model-C (CBAM Attention)**: Pushes Precision to $98.05\%$ and Recall to $95.02\%$, suppressing false positives from foliage textures.
-- **Model-C $\rightarrow$ Model-D ($P_2$ Stride-4 Level + Model EMA)**: Delivers a **+6.51% absolute boost in strict $\text{mAP@50:95}$ ($56.27\%$)** and attains the highest Target Recall across all models (**$96.02\%$**), eliminating the training variance observed in Model-A and Model-C.
+- **Model-A → Model-B (PANet Bottom-Up Fusion)**: Boosts strict mAP@50:95 from 49.76% to 51.02% (+1.26%) and increases throughput to 170.0 FPS.
+- **Model-B → Model-C (CBAM Attention)**: Pushes Precision to 98.05% and Recall to 95.02%, suppressing false positives from foliage textures.
+- **Model-C → Model-D (P2 Stride-4 Level + Model EMA)**: Delivers a **+6.51% absolute boost in strict mAP@50:95 (56.27%)** and attains the highest Target Recall across all models (**96.02%**), eliminating the training variance observed in Model-A and Model-C.
 
 <p align="center">
   <img src="paper/figures/ablation_curves.png" alt="Ablation Convergence Curves" width="100%" />
