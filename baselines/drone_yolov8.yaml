@@ -1,0 +1,5 @@
+names:
+  0: drone
+nc: 1
+train: D:\Projects\islab-test-drone-detection-model\splits\train.txt
+val: D:\Projects\islab-test-drone-detection-model\splits\val.txt

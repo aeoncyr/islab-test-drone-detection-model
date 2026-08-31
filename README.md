@@ -198,6 +198,32 @@ docker compose run --rm train-ddp
 docker compose run --rm evaluate
 ```
 
+### 6. Pretrained Baseline Benchmarks & Master Comparison Suite
+```bash
+# Train / Evaluate YOLOv8-nano & YOLOv8-small Baselines
+python baselines/run_yolov8.py --variant nano --epochs 50
+python baselines/run_yolov8.py --variant small --epochs 50
+
+# Train / Evaluate RT-DETR-L Vision Transformer Baseline
+python baselines/run_rtdetr.py --variant l --epochs 50
+
+# Execute Master Benchmark & Auto-Generate 2-Panel Pareto Figure & Tables
+python benchmark.py
+```
+
+---
+
+### 7. Pretrained Baseline Integration & Master Benchmark Suite
+
+To validate our 100% from-scratch custom models against established commercial frameworks, we provide clean, automated benchmark harnesses in `baselines/` and `benchmark.py`:
+
+- **YOLOv8 Baselines (`baselines/run_yolov8.py`)**: Evaluates **YOLOv8-nano** (3.2M parameters) and **YOLOv8-small** (11.2M parameters) using pretrained COCO initialization fine-tuned under identical sequence splits.
+- **RT-DETR-L Vision Transformer (`baselines/run_rtdetr.py`)**: Evaluates real-time Deformable DETR with HGNetv2 backbone (32.0M parameters) representing the modern Vision Transformer paradigm.
+- **Master Benchmark Suite (`benchmark.py`)**:
+  - Automatically discovers checkpoints across `runs/` for all custom models (Model A–D) and Ultralytics baselines.
+  - Computes standardized COCO-style metrics ($\text{mAP@50}$, $\text{mAP@50:95}$, Precision, Recall), parameter count, latency (ms), and FPS throughput.
+  - Automatically exports publication-ready `model_comparison_table.csv`, `model_comparison_table.md`, and a high-resolution 2-panel figure (`model_comparison_chart.png`).
+
 ---
 
 ## 🛠️ Tech Stack & Tools
