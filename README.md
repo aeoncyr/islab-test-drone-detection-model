@@ -14,6 +14,9 @@
 
 ## 👨‍🏫 Project Overview
 
+> [!NOTE]
+> **Project Context**: This repository originated as the practical implementation and research evaluation for the **AI Engineering Researcher Position** at **ISLab, Pusan National University**. It serves as an open-source benchmark for edge-native, zero-pretraining UAV drone detection architectures and reproducible deep learning research.
+
 This repository contains the complete implementation, benchmark suite, and research manuscript for an **edge-native, anchor-free UAV drone detection architecture trained from scratch** without transfer learning or external vision weights (such as ImageNet or Microsoft COCO).
 
 ### 🎯 Key Engineering & Scientific Highlights
