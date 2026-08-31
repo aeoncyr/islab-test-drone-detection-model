@@ -41,39 +41,39 @@ This repository contains the complete implementation, benchmark suite, and resea
 Input Image (3 × 416 × 416)
         │ Focus Stem (s2)
         ▼
-┌─────────────────────────────────────────────────────────────┐
-│  4-Stage CSPDarknet Backbone                                │
-│  ├── Stage 1 (C2): Stride 4   (104 × 104, 32 channels)      │
-│  ├── Stage 2 (C3): Stride 8   (52 × 52,   64 channels)      │
-│  ├── Stage 3 (C4): Stride 16  (26 × 26,  128 channels)      │
-│  └── Stage 4 (C5): Stride 32  (13 × 13,  256 channels) + SPPF
-└─────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│  4-Stage CSPDarknet Backbone                                 │
+│  ├── Stage 1 (C2): Stride 4   (104 × 104, 32 channels)       │
+│  ├── Stage 2 (C3): Stride 8   (52 × 52,   64 channels)       │
+│  ├── Stage 3 (C4): Stride 16  (26 × 26,  128 channels)       │
+│  └── Stage 4 (C5): Stride 32  (13 × 13,  256 channels) + SPPF│
+└──────────────────────────────────────────────────────────────┘
         │ Lateral Connections (1×1 Conv)
         ▼
-┌─────────────────────────────────────────────────────────────┐
-│  4-Level High-Res Feature Neck (FPN + CBAM + PAN)           │
-│  ├── Top-Down FPN Upsampling   (P5 → P4 → P3 → P2)          │
-│  ├── Dual-Domain CBAM Attention (Channel MLP + Spatial 7×7) │
-│  └── Bottom-Up PAN Fusion      (N2 → N3 → N4 → N5)          │
-└─────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│  4-Level High-Res Feature Neck (FPN + CBAM + PAN)            │
+│  ├── Top-Down FPN Upsampling   (P5 → P4 → P3 → P2)           │
+│  ├── Dual-Domain CBAM Attention (Channel MLP + Spatial 7×7)  │
+│  └── Bottom-Up PAN Fusion      (N2 → N3 → N4 → N5)           │
+└──────────────────────────────────────────────────────────────┘
         │ Direct Scale-Aware Feeds
         ▼
-┌─────────────────────────────────────────────────────────────┐
-│  Decoupled Anchor-Free Detection Heads & Loss               │
-│  ├── Head P2 (Stride 4,  104 × 104): Micro-targets (<20px)  │
-│  ├── Head P3 (Stride 8,  52 × 52):   Tiny targets           │
-│  ├── Head P4 (Stride 16, 26 × 26):   Medium targets         │
-│  └── Head P5 (Stride 32, 13 × 13):   Large targets          │
-│  Branches:                                                  │
-│    ├── H_cls: Sigmoid Focal Loss (class logits)             │
-│    ├── H_reg: Hybrid CIoU + NWDLoss (box distance offsets)  │
-│    └── H_obj: Centerness Quality Loss (BCE quality score)   │
-└─────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│  Decoupled Anchor-Free Detection Heads & Loss                │
+│  ├── Head P2 (Stride 4,  104 × 104): Micro-targets (<20px)   │
+│  ├── Head P3 (Stride 8,  52 × 52):   Tiny targets            │
+│  ├── Head P4 (Stride 16, 26 × 26):   Medium targets          │
+│  └── Head P5 (Stride 32, 13 × 13):   Large targets           │
+│  Branches:                                                   │
+│    ├── H_cls: Sigmoid Focal Loss (class logits)              │
+│    ├── H_reg: Hybrid CIoU + NWDLoss (box distance offsets)   │
+│    └── H_obj: Centerness Quality Loss (BCE quality score)    │
+└──────────────────────────────────────────────────────────────┘
         │ Shadow Weight Tracking (β = 0.9999)
         ▼
-┌─────────────────────────────────────────────────────────────┐
-│  Model EMA Temporal Ensemble: θ_ema = β θ_ema + (1-β) θ_mdl │
-└─────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│  Model EMA Temporal Ensemble: θ_ema = β θ_ema + (1-β) θ_mdl  │
+└──────────────────────────────────────────────────────────────┘
 ```
 
 ---
