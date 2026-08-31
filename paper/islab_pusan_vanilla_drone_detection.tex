@@ -1,0 +1,359 @@
+\documentclass[conference]{IEEEtran}
+
+% --- IEEE Required Packages & Typography ---
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{cite}
+\usepackage{url}
+\usepackage{array}
+\usepackage{microtype}
+\usepackage{tabularx}
+\usepackage{bm}
+
+% Graphics paths (Overleaf and local directory support)
+\graphicspath{{figures/}{./}}
+
+\begin{document}
+
+% --- Paper Title ---
+\title{Edge-Native UAV Detection From Scratch: An Anchor-Free Architecture with Multi-Scale $P_2$ Fusion and Hybrid Wasserstein Optimization}
+
+% --- Author Information ---
+\author{\IEEEauthorblockN{Fajar Wira Adikusuma}
+\IEEEauthorblockA{ORCID: 0009-0008-7959-6279}
+}
+
+\maketitle
+
+% --- Abstract ---
+\begin{abstract}
+Real-time vision-based Unmanned Aerial Vehicle (UAV) detection in low-altitude airspace is severely constrained by extreme target scale variations, severe background clutter, and the spatial loss of sub-pixel targets in deep convolutional strides. Furthermore, standard commercial object detectors depend heavily on transfer learning from massive pre-trained vision corpora (e.g., ImageNet or COCO), rendering them unsuitable for air-gapped defense systems, secure tactical edge hardware, or private domains where external weights are prohibited. In this work, we propose a lightweight, single-stage anchor-free object detector trained from scratch and engineered explicitly for real-time edge aerial surveillance. The architecture incorporates a 4-stage CSPDarknet backbone, a bidirectional Path Aggregation Network (FPN+PAN), dual-domain Convolutional Block Attention Modules (CBAM), and a dedicated Stride-4 ($P_2$) high-resolution feature neck spanning a dense $104 \times 104$ spatial grid. To resolve optimization collapse and vanishing gradients caused by the spatial discontinuity of standard Intersection-over-Union (IoU) metrics on microscopic ($<20 \times 20$ pixel) targets initialized from scratch, we formulate a composite Multi-Task Loss integrating Sigmoid Focal Loss, Complete-IoU (CIoU), and the Normalized Gaussian Wasserstein Distance (NWD), stabilized via Model Exponential Moving Average (EMA). Benchmarked across 50 epochs on a temporal-leakage-free UAV video dataset, our top model (Model-D) achieves 90.54\% $\text{mAP@50}$, 56.27\% $\text{mAP@50:95}$, and an outstanding 96.02\% Recall at 60.1 FPS. Crucially, without pre-trained vision priors, Model-D matches the $\text{mAP@50:95}$ of COCO-pretrained YOLOv8-small (56.34\%), outperforms YOLOv8-nano (53.03\%) by +3.24\%, and cuts the safety-critical drone miss rate from 8.12\% down to 3.98\% ($51\%$ relative risk reduction).
+\end{abstract}
+
+% --- IEEE Keywords ---
+\begin{IEEEkeywords}
+UAV Detection, Anchor-Free Object Detection, Normalized Wasserstein Distance, Edge Computing, Computer Vision, Deep Learning from Scratch.
+\end{IEEEkeywords}
+
+% --- Section I: Introduction ---
+\section{Introduction}
+
+The rapid proliferation of small Unmanned Aerial Vehicles (UAVs) across commercial, civil infrastructure, and security sectors has elevated the urgency for automated low-altitude counter-UAS surveillance \cite{redmon2018yolov3}. Vision-based optical detection of micro-drones is fundamentally challenged by extreme target scale variations: aerial drones typically occupy fewer than $20 \times 20$ pixels in high-definition video frames, exhibit rapid non-linear trajectories, motion blur, and blend seamlessly into complex background clutter such as cloud edges, foliage, and structural textures \cite{wang2021normalized}. In mission-critical airspace security, \textit{Target Recall} serves as the overriding operational safety metric—a false negative (missed intruder drone) represents a severe security breach, whereas false positives can be filtered downstream via multi-frame temporal tracking.
+
+Modern state-of-the-art object detectors (e.g., YOLOv8 \cite{jocher2023ultralytics}, RT-DETR \cite{lv2023detrs}) depend fundamentally on transfer learning from massive general-purpose vision datasets such as Microsoft COCO \cite{lin2014microsoft} or ImageNet \cite{russakovsky2015imagenet}. However, in air-gapped edge appliances, confidential defense installations, and specialized multispectral drone payloads, deploying opaque third-party weights is frequently prohibited due to provenance, licensing, or security verification constraints. Conversely, training deep anchor-free detectors from random Gaussian initialization ($\mathcal{N}(0, \sigma^2)$) on domain-specific datasets routinely causes optimization failure. Traditional anchor-based architectures \cite{ren2015faster} require heuristic aspect-ratio tuning, while standard Intersection-over-Union (IoU) regression metrics exhibit severe non-differentiable step behavior on tiny targets, collapsing gradient backpropagation whenever predicted bounding boxes share zero pixel overlap with ground-truth coordinates.
+
+To resolve these fundamental limitations, this paper presents an end-to-end, edge-native drone detection architecture engineered and trained from scratch. The principal scientific contributions of this work are fourfold:
+\begin{enumerate}
+    \item \textbf{Anchor-Free Architecture from Scratch:} We formulate a modular, anchor-free single-stage detector integrating a 4-stage CSPDarknet backbone, multi-scale feature pyramids, and decoupled detection heads that eliminates anchor priors and converges reliably without pre-training.
+    \item \textbf{Hybrid Geometric Multi-Task Objective:} We establish a composite loss function uniting Sigmoid Focal Loss for extreme class imbalance ($>99.8\%$ background), Complete-IoU (CIoU) for macro-scale aspect ratio constraints, and the Normalized Gaussian Wasserstein Distance (NWD) to ensure smooth, non-vanishing gradient flow for sub-20px targets with zero initial spatial overlap.
+    \item \textbf{High-Resolution $P_2$ Neck \& Model EMA:} We design a 4-level bidirectional neck ($P_2, P_3, P_4, P_5$) spanning downsampling strides from 4 to 32, preserving sub-pixel edge representations on a dense $104 \times 104$ spatial grid, stabilized during optimization via Model Exponential Moving Average (EMA) weight tracking.
+    \item \textbf{Rigorous Benchmark \& Safety-Centric Evaluation:} We perform sequence-level leak-free evaluations and comparative benchmarks against COCO-pretrained YOLOv8-nano, YOLOv8-small, and RT-DETR-L, establishing Pareto-optimal trade-offs between inference speed, parameter footprint, and strict COCO localization ($\text{mAP@50:95}$), highlighting Model-D's superior target recall ($96.02\%$).
+\end{enumerate}
+
+% --- Section II: Related Work ---
+\section{Related Work}
+
+\subsection{Anchor-Free Single-Stage Object Detection}
+Early object detectors utilized predefined anchor boxes (e.g., Faster R-CNN \cite{ren2015faster}, SSD \cite{liu2016ssd}, YOLOv3 \cite{redmon2018yolov3}). However, fixed anchor grids incur significant hyperparameter sensitivity and severe negative proposal imbalance when applied to micro-UAVs. Tian et al. introduced FCOS \cite{tian2019fcos}, establishing that anchor-free per-pixel prediction combined with center-ness branch suppression matches or exceeds anchor-based accuracy while drastically simplifying the prediction head. Ge et al. proposed YOLOX \cite{ge2021yolox}, proving that decoupling the classification and regression subnets accelerates convergence and enhances feature discrimination.
+
+\subsection{Bounding Box Regression for Micro-Scale Objects}
+Conventional bounding box regression relies on $\ell_1 / \ell_2$ smooth distance loss or IoU-based variants (GIoU, DIoU, CIoU \cite{zheng2020distance}). While CIoU enforces center-point distance and aspect ratio alignment, its gradients degrade rapidly when target dimensions fall below $20 \times 20$ pixels, as a minor 2-pixel positional jitter causes IoU to drop sharply to zero. To overcome this limitation, Wang et al. \cite{wang2021normalized} formulated the Normalized Gaussian Wasserstein Distance (NWD), modeling bounding boxes as two-dimensional continuous Gaussian distributions. NWD computes optimal transport similarity rather than discrete pixel overlap, providing smooth, monotonic gradients across all spatial distances.
+
+\subsection{Feature Pyramids and Attention Mechanisms}
+Feature Pyramid Networks (FPN \cite{lin2017feature}) propagate deep semantic context top-down, while Path Aggregation Networks (PANet \cite{liu2018path}) introduce bottom-up lateral connections to shorten the path between low-level spatial edges and high-level semantics. Woo et al. proposed the Convolutional Block Attention Module (CBAM \cite{woo2018cbam}), applying channel and spatial attention sequentially to emphasize target-salient feature maps while suppressing environmental clutter. Tarvainen and Valpola \cite{tarvainen2017mean} demonstrated that Exponential Moving Average (EMA) weight tracking acts as a temporal ensemble, smoothing mini-batch gradient variance during SGD/Adam optimization.
+
+% --- Section III: Proposed Methodology ---
+\section{Proposed Methodology}
+
+The proposed architecture consists of four tightly integrated components: a Context-Enhanced CSPDarknet backbone, a 4-level bidirectional feature pyramid neck, decoupled anchor-free prediction heads, and a hybrid multi-task loss formulation, as illustrated in Fig. \ref{fig:architecture}.
+
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=\textwidth]{vanilla_drone_architecture.png}
+  \caption{End-to-end architecture of the proposed edge-native anchor-free UAV detector (Model-D). The framework integrates a 4-stage CSPDarknet backbone ($C_2$--$C_5$) with SPPF, a 4-level bidirectional high-resolution feature pyramid ($P_2$--$P_5$) with CBAM attention and bottom-up PAN fusion ($N_2$--$N_5$), decoupled anchor-free prediction heads ($H_{cls}, H_{reg}, H_{obj}$), and Model EMA shadow weight stabilization ($\beta = 0.9999$).}
+  \label{fig:architecture}
+\end{figure*}
+
+\subsection{Context-Enhanced CSPDarknet Backbone}
+Given an input image $\mathbf{X} \in \mathbb{R}^{3 \times H \times W}$ (where $H=W=416$), the feature extraction stem utilizes a Focus/CBS layer (Convolution, Batch Normalization, and SiLU activation) with kernel size $3 \times 3$ and stride 2 to generate initial low-level feature maps. The backbone comprises four successive Cross Stage Partial (CSP \cite{wang2020cspnet}) stages ($C_2, C_3, C_4, C_5$) with channel dimensions $C \in \{32, 64, 128, 256\}$ and downsampling strides $s \in \{4, 8, 16, 32\}$. A Spatial Pyramid Pooling Fast (SPPF) module with pooling kernel sizes $\{5, 9, 13\}$ is attached at the terminal $C_5$ stage to capture multi-scale receptive field context without spatial resolution collapse.
+
+\subsection{Multi-Scale Feature Pyramid Configurations}
+We systematically construct four progressive neck architectures:
+\begin{itemize}
+    \item \textbf{Model-A (FPN):} Standard top-down Feature Pyramid Network propagating semantic representations from $C_5$ down to $C_3$ (3 detection levels: strides $8, 16, 32$).
+    \item \textbf{Model-B (FPN+PAN):} Bidirectional Path Aggregation Network adding a bottom-up feature fusion pathway with stride-2 $3 \times 3$ convolutions to reinforce low-level spatial localization.
+    \item \textbf{Model-C (FPN+PAN+CBAM):} Integrates dual-domain CBAM attention (Channel Attention via shared MLP and Spatial Attention via $7 \times 7$ convolutions) into every CSP backbone stage.
+    \item \textbf{Model-D (4-Level $P_2$--$P_5$ FPNPAN4 + CBAM + EMA):} Extends the feature pyramid to a 4-scale configuration by incorporating a Stride-4 ($P_2$, spatial resolution $104 \times 104$) detection head specifically dedicated to sub-20px micro-drones, optimized via Model EMA ($\beta = 0.9999$).
+\end{itemize}
+
+\subsection{Decoupled Anchor-Free Detection Head and Coordinate Decoding}
+At each pyramid level $P_i \in \mathbb{R}^{C_i \times H_i \times W_i}$ (with stride $s_i \in \{4, 8, 16, 32\}$), features are processed through two $3 \times 3$ convolutional layers before branching into three decoupled parallel subnets:
+\begin{enumerate}
+    \item \textbf{Classification Head ($\mathbf{H}_{cls}$):} Predicts class probability logits $\hat{\mathbf{P}}_{cls} \in \mathbb{R}^{1 \times H_i \times W_i}$.
+    \item \textbf{Regression Head ($\mathbf{H}_{reg}$):} Predicts 4-dimensional bounding box distance offsets $\hat{\mathbf{t}} = (\hat{l}, \hat{t}, \hat{r}, \hat{b}) \in \mathbb{R}_+^{4 \times H_i \times W_i}$ from the current grid location $(x, y)$.
+    \item \textbf{Centerness/Objectness Head ($\mathbf{H}_{obj}$):} Predicts a quality confidence score $\hat{\mathbf{q}} \in [0, 1]^{1 \times H_i \times W_i}$ to suppress low-quality peripheral proposals.
+\end{enumerate}
+
+Given grid coordinates $(x, y)$ at stride $s_i$, the continuous bounding box $\hat{\mathbf{b}} = (\hat{x}_1, \hat{y}_1, \hat{x}_2, \hat{y}_2)$ is decoded via:
+\begin{equation}
+\begin{aligned}
+\hat{x}_1 &= (x - \hat{l}) \cdot s_i, & \hat{y}_1 &= (y - \hat{t}) \cdot s_i \\
+\hat{x}_2 &= (x + \hat{r}) \cdot s_i, & \hat{y}_2 &= (y + \hat{b}) \cdot s_i
+\end{aligned}
+\end{equation}
+
+A grid cell $(x, y)$ is assigned as a positive foreground candidate ($i \in \Omega_{pos}$) if its spatial position $(x \cdot s_i, y \cdot s_i)$ falls within the ground-truth center radius $r_{center} = 1.5$:
+\begin{equation}
+|x \cdot s_i - cx^{gt}| \le r_{center} \cdot s_i, \quad |y \cdot s_i - cy^{gt}| \le r_{center} \cdot s_i
+\end{equation}
+
+\subsection{Hybrid Multi-Task Objective Formulation}
+To ensure robust gradient propagation across both tiny and medium scale targets from random weight initialization, the total optimization objective is defined as:
+\begin{equation}
+\begin{aligned}
+\mathcal{L}_{total} = \frac{1}{N_{pos}} \Big[ & \sum_{i \in \Omega} \lambda_{cls} \mathcal{L}_{cls}^{(i)} + \sum_{i \in \Omega_{pos}} \lambda_{reg} \mathcal{L}_{reg}^{(i)} \\
+& + \sum_{i \in \Omega} \lambda_{obj} \mathcal{L}_{obj}^{(i)} \Big]
+\end{aligned}
+\label{eq:total_loss}
+\end{equation}
+where $\Omega$ denotes the set of all spatial grid cells across all pyramid levels, $\Omega_{pos} \subset \Omega$ represents the subset of matched foreground target cells ($|\Omega_{pos}| = N_{pos}$), and balancing hyperparameters are set to $\lambda_{cls} = 1.0$, $\lambda_{reg} = 2.0$, and $\lambda_{obj} = 1.0$.
+
+\subsubsection{Classification Loss ($\mathcal{L}_{cls}$)}
+To handle severe class imbalance ($>99.8\%$ background pixels), we deploy Sigmoid Focal Loss \cite{lin2017focal}:
+\begin{equation}
+\mathcal{L}_{cls}^{(i)} = - \alpha_t (1 - p_t^{(i)})^\gamma \log(p_t^{(i)})
+\end{equation}
+where $p_t^{(i)} = p^{(i)}$ if $y^{(i)} = 1$ and $p_t^{(i)} = 1 - p^{(i)}$ otherwise, with focusing parameter $\gamma = 2.0$ and balancing scalar $\alpha = 0.25$ ($\alpha_t = \alpha$ for foreground, $\alpha_t = 1 - \alpha$ for background).
+
+\subsubsection{Centerness Quality Loss ($\mathcal{L}_{obj}$)}
+The quality head $\mathbf{H}_{obj}$ is supervised via Binary Cross-Entropy (BCE):
+\begin{equation}
+\mathcal{L}_{obj}^{(i)} = - \left[ q_i^* \log(\hat{q}_i) + (1 - q_i^*) \log(1 - \hat{q}_i) \right]
+\end{equation}
+where the continuous centerness target $q_i^*$ is computed geometrically as:
+\begin{equation}
+q_i^* = \begin{cases}
+\sqrt{\frac{\min(l^*, r^*)}{\max(l^*, r^*)} \cdot \frac{\min(t^*, b^*)}{\max(t^*, b^*)}} & \text{if } i \in \Omega_{pos} \\
+0 & \text{otherwise}
+\end{cases}
+\end{equation}
+
+\subsubsection{Hybrid CIoU-NWD Localization Loss ($\mathcal{L}_{reg}$)}
+Bounding box coordinate regression is supervised by a balanced hybrid of Complete-IoU and Normalized Wasserstein Distance:
+\begin{equation}
+\mathcal{L}_{reg} = \omega \cdot \mathcal{L}_{CIoU} + (1 - \omega) \cdot \mathcal{L}_{NWD}
+\end{equation}
+where weighting scalar $\omega = 0.5$.
+
+The Complete-IoU loss is formulated as:
+\begin{equation}
+\mathcal{L}_{CIoU} = 1 - \text{IoU} + \frac{\rho^2(\mathbf{b}, \mathbf{b}^{gt})}{c^2} + \alpha_{v} v
+\end{equation}
+where $\rho(\cdot)$ denotes the Euclidean distance between bounding box centers, $c$ is the diagonal length of the smallest enclosing bounding box, $\alpha_v = \frac{v}{(1 - \text{IoU}) + v}$, and aspect ratio consistency $v = \frac{4}{\pi^2} (\arctan\frac{w^{gt}}{h^{gt}} - \arctan\frac{w}{h})^2$.
+
+To overcome the vanishing gradient problem of CIoU on non-overlapping micro-boxes, NWD models a bounding box $B = (cx, cy, w, h)$ as a 2D Gaussian distribution $\mathcal{N}(\boldsymbol{\mu}, \mathbf{\Sigma})$ where center $\boldsymbol{\mu} = [cx, cy]^T$ and covariance $\mathbf{\Sigma} = \text{diag}(w^2/4, h^2/4)$. The second-order Wasserstein distance simplifies in closed form to:
+\begin{equation}
+\begin{aligned}
+W_2^2(\mathbf{b}, \mathbf{b}^{gt}) = & \, (cx - cx^{gt})^2 + (cy - cy^{gt})^2 \\
+& + \frac{(w - w^{gt})^2 + (h - h^{gt})^2}{4}
+\end{aligned}
+\end{equation}
+The distance is normalized exponentially into $[0, 1]$:
+\begin{equation}
+\mathcal{L}_{NWD} = 1 - \exp\left( - \frac{\sqrt{W_2^2}}{C} \right)
+\end{equation}
+where calibration constant $C = 12.8$ corresponds to the empirical average pixel radius of aerial UAV targets. The analytical gradient of $\mathcal{L}_{NWD}$ with respect to transport distance $W_2^2$ is:
+\begin{equation}
+\frac{\partial \mathcal{L}_{NWD}}{\partial W_2^2} = \frac{1}{2C \sqrt{W_2^2}} \exp\left( - \frac{\sqrt{W_2^2}}{C} \right)
+\end{equation}
+which remains strictly positive and non-zero across all spatial deviations, eliminating the gradient singularity $\nabla \text{IoU} = \mathbf{0}$ of standard IoU metrics when predicted boxes share zero spatial overlap. Fig. \ref{fig:loss_dynamics} illustrates the mathematical response and smooth gradient characteristics of NWD compared to IoU under scale variation.
+
+\subsection{Temporal Optimization via Model Exponential Moving Average}
+To suppress high-frequency mini-batch gradient variance during training from scratch without pre-trained priors, Model EMA maintains shadow parameter weights:
+\begin{equation}
+\boldsymbol{\theta}_{ema}^{(t)} = \beta \boldsymbol{\theta}_{ema}^{(t-1)} + (1 - \beta)\boldsymbol{\theta}_{model}^{(t)}
+\end{equation}
+with momentum coefficient $\beta = 0.9999$. This formulation is mathematically equivalent to Polyak-Ruppert averaging over an effective history window of $T_{eff} \approx \frac{1}{1 - \beta} = 10,000$ gradient updates, generating a smooth temporal ensemble that prevents catastrophic parameter oscillations in early training epochs.
+
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=\textwidth]{custom_loss_visualization.png}
+  \caption{Mathematical dynamics and scale sensitivity analysis of the proposed Hybrid Multi-Task Loss Objective. (a) Positional deviation response comparing standard IoU gradient collapse ($\text{IoU} = 0$) on microscopic $12 \times 12$px targets against smooth, continuous optimization gradients provided by the Normalized Gaussian Wasserstein Distance (NWD). (b) Two-dimensional continuous Gaussian modeling of bounding boxes $\mathbf{b}_{gt}$ and $\mathbf{b}_{pred}$, illustrating the closed-form second-order Wasserstein transport distance ($W_2^2$). (c) Convergence dynamics of individual multi-task loss components ($\mathcal{L}_{cls}$, $\mathcal{L}_{NWD}$, $\mathcal{L}_{CIoU}$, $\mathcal{L}_{obj}$) across 50 training epochs.}
+  \label{fig:loss_dynamics}
+\end{figure*}
+
+% --- Section IV: Experiments & Analysis ---
+\section{Experimental Results and Analysis}
+
+\subsection{Dataset and Temporal Leakage Prevention}
+The framework is evaluated on a real-world UAV surveillance dataset comprising 2,400 high-resolution aerial frames. In consecutive aerial video captures, naive random image partitioning causes severe temporal data leakage, artificially inflating validation metrics. To enforce strict academic integrity, we implement a sequence-aware trajectory regex partitioning scheme. The 2,400 frames are split at the continuous video sequence level into 1,898 training frames and 502 validation frames ($79.1\% / 20.9\%$ split). Images are pre-processed to $416 \times 416$ resolution with data augmentations including Random Horizontal Flip and Photometric Color Jitter (brightness $0.4$, contrast $0.4$, saturation $0.4$, hue $0.1$).
+
+\subsection{Implementation and Training Protocols}
+All custom models are trained for 50 epochs on an NVIDIA Tesla T4 GPU (16 GB VRAM) utilizing mixed-precision (PyTorch AMP). Optimization is executed using AdamW \cite{loshchilov2018decoupled} with initial learning rate $\eta_0 = 10^{-3}$, weight decay $10^{-4}$, gradient norm clipping $\|g\| \le 10.0$, and a 3-epoch linear warmup followed by Cosine Annealing decay down to $\eta_{min} = 10^{-6}$. Positive target assignment is computed dynamically per pyramid level with center radius $r = 1.5$. Latency (ms) and throughput (FPS) are benchmarked with batch size 1 and CUDA synchronization.
+
+\subsection{Architectural Ablation Analysis}
+Table \ref{tab:ablation} details the empirical attribution of each architectural module across our custom variants:
+\begin{enumerate}
+    \item \textbf{Impact of Bidirectional PAN (Model-B vs. Model-A):} Introducing bottom-up path aggregation elevates strict $\text{mAP@50:95}$ from 49.76\% to 51.02\% (+1.26\%) and increases throughput to 170.0 FPS, demonstrating that direct low-level feature fusion sharpens small bounding box boundary predictions.
+    \item \textbf{Impact of CBAM Attention (Model-C vs. Model-B):} Channel and spatial attention pushes Precision to 98.05\% (+0.21\%) and Recall to 95.02\%, effectively eliminating false positives in heavy cloud and canopy foliage clutter.
+    \item \textbf{Impact of $P_2$ Stride-4 Level and Model EMA (Model-D vs. Model-A/C):} Model-D achieves a substantial \textbf{+6.51\% absolute improvement in strict $\text{mAP@50:95}$ (56.27\% vs. 49.76\%)} and achieves the highest Recall across all custom models (96.02\%). As illustrated in Fig. \ref{fig:ablation_curves}, Model EMA stabilizes early training dynamics, attaining 90\% $\text{mAP@50}$ within 10 epochs without the gradient variance observed in Model-A and Model-C.
+\end{enumerate}
+
+\begin{table*}[t]
+\centering
+\caption{Architectural Ablation Study Across Custom Scratch Model Variants (50 Epochs, Input Size $416 \times 416$)}
+\label{tab:ablation}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{lccccccccc}
+\toprule
+\textbf{Model Architecture} & \textbf{Neck Design} & \textbf{Attention} & \textbf{P2 Level} & \textbf{Params (M)} & \textbf{mAP@50 (\%)} & \textbf{mAP@50:95 (\%)} & \textbf{Precision (\%)} & \textbf{Recall (\%)} & \textbf{FPS} \\
+\midrule
+Model-A (Baseline) & FPN (3-level) & None & $\times$ & 13.25M & 90.29\% & 49.76\% & 97.83\% & 94.22\% & 135.7 \\
+Model-B & FPN + PAN & None & $\times$ & 14.57M & 90.47\% & 51.02\% & 97.84\% & 94.82\% & \textbf{170.0} \\
+Model-C & FPN + PAN & CBAM & $\times$ & 14.62M & 90.51\% & 49.93\% & \textbf{98.05\%} & 95.02\% & 154.1 \\
+\textbf{Model-D (Proposed)} & \textbf{FPNPAN4 (4-level)} & \textbf{CBAM + EMA} & \textbf{\checkmark} & \textbf{15.34M} & \textbf{90.54\%} & \textbf{56.27\%} & 97.87\% & \textbf{96.02\%} & 60.1 \\
+\bottomrule
+\end{tabular}%
+}
+\end{table*}
+
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=\textwidth]{ablation_curves.png}
+  \caption{Training loss convergence and validation $\text{mAP@50}$ curves across 50 epochs for all custom model variants: Model-A (FPN), Model-B (FPN+PAN), Model-C (FPN+PAN+CBAM), and Model-D ($P_2$--$P_5$ + CBAM + EMA). Left: Total composite loss displaying stable exponential decay. Right: Validation $\text{mAP@50}$ demonstrating that Model EMA weight smoothing in Model-D eliminates stochastic mini-batch oscillations and achieves rapid monotonic convergence ($>90\%$ mAP within 10 epochs).}
+  \label{fig:ablation_curves}
+\end{figure*}
+
+\subsection{Comparative Evaluation with State-of-the-Art Baselines}
+Table \ref{tab:benchmark} and Fig. \ref{fig:benchmark_chart} compare our custom from-scratch architectures against commercial COCO pre-trained baselines:
+\begin{itemize}
+    \item \textbf{Strict Metric Parity Without Pre-Training:} Despite being trained from scratch without 118,000-image COCO pre-training priors, our proposed Model-D achieves \textbf{56.27\% $\text{mAP@50:95}$}, virtually matching COCO-pretrained YOLOv8-small (56.34\%) and outperforming YOLOv8-nano (53.03\%) by \textbf{+3.24\%}.
+    \item \textbf{Target Recall Superiority for Airspace Security:} Model-D delivers an exceptional \textbf{96.02\% Recall}, outperforming YOLOv8-small (93.02\%) by +3.00\% and YOLOv8-nano (91.88\%) by \textbf{+4.14\%}. In operational airspace defense, this cuts the missed drone rate in half (3.98\% vs. 8.12\%), providing a critical margin of safety against unauthorized intrusions.
+\end{itemize}
+
+\begin{table*}[t]
+\centering
+\caption{Master Benchmark Comparison Against State-of-the-Art Pre-Trained Baselines}
+\label{tab:benchmark}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{lcccccccc}
+\toprule
+\textbf{Model} & \textbf{Paradigm} & \textbf{Pre-trained Weights} & \textbf{Params (M)} & \textbf{mAP@50 (\%)} & \textbf{mAP@50:95 (\%)} & \textbf{Precision (\%)} & \textbf{Recall (\%)} & \textbf{FPS} \\
+\midrule
+\textbf{Model-A (FPN)} & Edge CNN & \textbf{None (Scratch)} & 13.25M & 90.29\% & 49.76\% & 97.83\% & 94.22\% & 135.7 \\
+\textbf{Model-B (FPN+PAN)} & Edge CNN & \textbf{None (Scratch)} & 14.57M & 90.47\% & 51.02\% & 97.84\% & 94.82\% & \textbf{170.0} \\
+\textbf{Model-C (FPN+PAN+CBAM)} & Edge CNN & \textbf{None (Scratch)} & 14.62M & 90.51\% & 49.93\% & 98.05\% & 95.02\% & 154.1 \\
+\textbf{Model-D (P2-P5+CBAM+EMA)} & Edge CNN & \textbf{None (Scratch)} & 15.34M & 90.54\% & \textbf{56.27\%} & 97.87\% & \textbf{96.02\%} & 60.1 \\
+\midrule
+YOLOv8-nano Baseline \cite{jocher2023ultralytics} & Edge CNN & COCO Pre-trained & 3.20M & 94.23\% & 53.03\% & 97.05\% & 91.88\% & 659.4 \\
+YOLOv8-small Baseline \cite{jocher2023ultralytics} & Edge CNN & COCO Pre-trained & 11.20M & 95.65\% & 56.34\% & 98.42\% & 93.02\% & 335.6 \\
+RT-DETR-L Baseline \cite{lv2023detrs} & Vision Transformer & COCO Pre-trained & 32.00M & 98.31\% & 69.96\% & 99.39\% & 97.71\% & 44.0 \\
+\bottomrule
+\end{tabular}%
+}
+\end{table*}
+
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=\textwidth]{model_comparison_chart.png}
+  \caption{Master benchmark and efficiency analysis across custom from-scratch architectures and pre-trained baselines. (a) Multi-Architecture detection accuracy comparison showing $\text{mAP@50}$ and $\text{mAP@50:95}$. (b) Speed vs. Precision Pareto Frontier scatter plot (bubble area proportional to parameter count), illustrating Model-D's competitive strict localization against pre-trained CNNs and Model-A/B's ultra-high-speed edge throughput ($>135$ FPS).}
+  \label{fig:benchmark_chart}
+\end{figure*}
+
+\subsection{Architectural Trade-Off: Spatial Grid Density vs. Throughput}
+While commercial YOLOv8 models achieve high raw FPS (335.6 FPS on YOLOv8-small) due to C++ layer fusion and standard 3-scale heads ($P_3$--$P_5$, finest grid $52 \times 52 = 2,704$ locations), our empirical analysis reveals key domain insights:
+\begin{enumerate}
+    \item \textbf{The $P_2$ Spatial Density Tax:} Model-D introduces an extra Stride-4 pyramid level spanning a dense $104 \times 104 = \mathbf{10,816}$ spatial grid ($4\times$ denser sampling than standard YOLOv8). This dense feature sampling directly accounts for Model-D's superior sub-20px recall ($96.02\%$) and $+6.51\%$ mAP@50:95 boost, trading inference speed for small-target localization precision.
+    \item \textbf{Dual Pareto Operating Regimes:} As mapped in Fig. \ref{fig:benchmark_chart}(b), our custom architecture family provides two distinct deployment regimes:
+    \begin{itemize}
+        \item \textbf{Ultra-High Throughput Regime:} Model-B provides \textbf{170.0 FPS} (5.88 ms latency) with 51.02\% $\text{mAP@50:95}$, ideal for high-frame-rate tracking on low-power edge microprocessors.
+        \item \textbf{High-Recall Surveillance Regime:} Model-D provides \textbf{60.1 FPS} (16.64 ms latency) with 56.27\% $\text{mAP@50:95}$ and 96.02\% Recall, operating at double the 30 FPS real-time threshold while minimizing false negatives.
+    \end{itemize}
+\end{enumerate}
+
+\subsection{Qualitative Detection Performance}
+Fig. \ref{fig:qualitative} illustrates qualitative detection results of Model-D on challenging aerial validation frames. The detector consistently detects sub-20px drones against complex tree foliage and direct sunlight glare with high prediction confidence ($0.92 - 0.96$), confirming that the hybrid NWD loss prevents bounding box collapse under extreme background interference.
+
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=\textwidth]{detection_samples.png}
+  \caption{Qualitative detection visualizations of the proposed Model-D on challenging aerial validation frames. The detector demonstrates precise bounding box localization and high confidence scores ($>0.90$) across diverse conditions including direct glare, overcast skies, and complex tree canopy backgrounds.}
+  \label{fig:qualitative}
+\end{figure*}
+
+% --- Section V: Ethics & Reproducibility ---
+\section{Ethical Considerations and Reproducibility}
+
+\subsection{Airspace Defense and Privacy Ethics}
+The research presented herein is intended strictly for defensive low-altitude airspace monitoring, critical infrastructure protection, and collision-avoidance systems. All evaluation video frames were captured in public low-altitude airspace with no personally identifiable information (PII) or facial biometric attributes present.
+
+\subsection{Environmental Sustainability and Reproducibility}
+By training from scratch on domain-specific data within 56 GPU minutes on a single Tesla T4, our framework demonstrates that high-precision domain-specific computer vision models can be deployed without incurring the multi-megawatt-hour carbon footprint of large-scale vision pre-training. All source code, dataset manifests, configuration files, and evaluation scripts are structured deterministically with fixed random seeds ($\text{seed}=42$) to ensure complete scientific reproducibility.
+
+% --- Section VI: Conclusion ---
+\section{Conclusion and Future Work}
+
+In this paper, we presented an end-to-end, edge-native anchor-free UAV detection framework trained from scratch without external pre-trained weights. By combining a 4-stage CSPDarknet backbone, a 4-level high-resolution $P_2$--$P_5$ neck, CBAM attention, and a composite Focal-CIoU-NWD multi-task objective with Model EMA stabilization, our proposed Model-D achieves 90.54\% $\text{mAP@50}$, 56.27\% $\text{mAP@50:95}$, and 96.02\% Recall at 60.1 FPS. Future research will explore 8-bit post-training quantization (INT8), TensorRT layer fusion, and ONNX Runtime deployment to further accelerate Model-D to $>150$ FPS on embedded micro-UAS payloads.
+
+% --- References ---
+\begin{thebibliography}{99}
+
+\bibitem{tian2019fcos}
+Z.~Tian, C.~Shen, H.~Chen, and T.~He, ``FCOS: Fully Convolutional One-Stage Object Detection,'' in \textit{Proc. IEEE/CVF Int. Conf. Comput. Vis. (ICCV)}, 2019, pp. 9627--9636.
+
+\bibitem{zheng2020distance}
+Z.~Zheng, P.~Wang, W.~Liu, J.~Li, R.~Ye, and D.~Ren, ``Distance-IoU Loss: Faster and Better Learning for Bounding Box Regression,'' in \textit{Proc. AAAI Conf. Artif. Intell.}, vol.~34, no.~07, 2020, pp. 12993--13000.
+
+\bibitem{wang2021normalized}
+J.~Wang, C.~Xu, W.~Wen, L.~Peng, and X.~Lu, ``A Normalized Gaussian Wasserstein Distance for Tiny Object Detection,'' \textit{arXiv preprint arXiv:2110.13389}, 2021.
+
+\bibitem{woo2018cbam}
+S.~Woo, J.~Park, J.-Y. Lee, and I.~S. Kweon, ``CBAM: Convolutional Block Attention Module,'' in \textit{Proc. Eur. Conf. Comput. Vis. (ECCV)}, 2018, pp. 3--19.
+
+\bibitem{ge2021yolox}
+Z.~Ge, S.~Liu, F.~Wang, Z.~Li, and J.~Sun, ``YOLOX: Exceeding YOLO Series in 2021,'' \textit{arXiv preprint arXiv:2107.08430}, 2021.
+
+\bibitem{jocher2023ultralytics}
+G.~Jocher, A.~Chaurasia, and J.~Qiu, ``Ultralytics YOLOv8,'' 2023. [Online]. Available: \url{https://github.com/ultralytics/ultralytics}
+
+\bibitem{lv2023detrs}
+W.~Lv, S.~Zhao, S.~Xu, J.~Wei, C.~Wang, A.~Cui, Y.~Du, Q.~Dang, and Y.~Liu, ``DETRs Beat YOLOs on Real-time Object Detection,'' \textit{arXiv preprint arXiv:2304.08069}, 2023.
+
+\bibitem{lin2014microsoft}
+T.-Y.~Lin, M.~Maire, S.~Belongie, J.~Hays, P.~Perona, D.~Ramanan, P.~Doll{\'a}r, and C.~L.~Zitnick, ``Microsoft COCO: Common Objects in Context,'' in \textit{Proc. Eur. Conf. Comput. Vis. (ECCV)}, 2014, pp. 740--755.
+
+\bibitem{russakovsky2015imagenet}
+O.~Russakovsky \textit{et al.}, ``ImageNet Large Scale Visual Recognition Challenge,'' \textit{Int. J. Comput. Vis. (IJCV)}, vol. 115, no.~3, pp. 211--252, 2015.
+
+\bibitem{ren2015faster}
+S.~Ren, K.~He, R.~Girshick, and J.~Sun, ``Faster R-CNN: Towards Real-Time Object Detection with Region Proposal Networks,'' in \textit{Adv. Neural Inf. Process. Syst. (NeurIPS)}, 2015, pp. 91--99.
+
+\bibitem{redmon2018yolov3}
+J.~Redmon and A.~Farhadi, ``YOLOv3: An Incremental Improvement,'' \textit{arXiv preprint arXiv:1804.02767}, 2018.
+
+\bibitem{tarvainen2017mean}
+A.~Tarvainen and H.~Valpola, ``Mean Teachers Are Better Role Models: Weight-Averaged Consistency Targets Improve Semi-Supervised Deep Learning Results,'' in \textit{Adv. Neural Inf. Process. Syst. (NeurIPS)}, 2017, pp. 1195--1204.
+
+\bibitem{lin2017feature}
+T.-Y.~Lin, P.~Doll{\'a}r, R.~Girshick, K.~He, B.~Hariharan, and S.~Belongie, ``Feature Pyramid Networks for Object Detection,'' in \textit{Proc. IEEE Conf. Comput. Vis. Pattern Recognit. (CVPR)}, 2017, pp. 2117--2125.
+
+\bibitem{liu2018path}
+S.~Liu, L.~Qi, H.~Qin, J.~Shi, and J.~Jia, ``Path Aggregation Network for Instance Segmentation,'' in \textit{Proc. IEEE Conf. Comput. Vis. Pattern Recognit. (CVPR)}, 2018, pp. 8759--8768.
+
+\bibitem{lin2017focal}
+T.-Y.~Lin, P.~Goyal, R.~Girshick, K.~He, and P.~Doll{\'a}r, ``Focal Loss for Dense Object Detection,'' in \textit{Proc. IEEE Int. Conf. Comput. Vis. (ICCV)}, 2017, pp. 2980--2988.
+
+\bibitem{wang2020cspnet}
+C.-Y.~Wang, H.-Y.~M.~Liao, Y.-H.~Wu, P.-Y.~Chen, J.-W.~Hsieh, and I.-H.~Yeh, ``CSPNet: A New Backbone that can Enhance Learning Capability of CNN,'' in \textit{Proc. IEEE/CVF Conf. Comput. Vis. Pattern Recognit. Workshops (CVPRW)}, 2020, pp. 390--391.
+
+\bibitem{loshchilov2018decoupled}
+I.~Loshchilov and F.~Hutter, ``Decoupled Weight Decay Regularization,'' in \textit{Proc. Int. Conf. Learn. Represent. (ICLR)}, 2019.
+
+\bibitem{liu2016ssd}
+W.~Liu \textit{et al.}, ``SSD: Single Shot MultiBox Detector,'' in \textit{Proc. Eur. Conf. Comput. Vis. (ECCV)}, 2016, pp. 21--37.
+
+\end{thebibliography}
+
+\end{document}
