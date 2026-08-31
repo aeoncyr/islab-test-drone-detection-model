@@ -370,13 +370,13 @@ class HybridMultiTaskLoss(nn.Module):
         loss_obj = torch.tensor(0.0, device=model_outputs[0]["cls"].device)
         num_pos_total = 0
 
-        _DEFAULT_STRIDES = [8, 16, 32]
+        _STRIDES = [4, 8, 16, 32] if len(model_outputs) == 4 else [8, 16, 32]
         for i, (pred, target) in enumerate(zip(model_outputs, targets)):
             if "stride" in pred:
                 s = pred["stride"]
                 stride = int(s.flatten()[0].item()) if isinstance(s, torch.Tensor) else int(s)
             else:
-                stride = _DEFAULT_STRIDES[i]
+                stride = _STRIDES[i]
 
             # Flatten spatial dims: (B, C, H, W) → (B*H*W, C)
             cls_pred = pred["cls"].permute(0, 2, 3, 1).reshape(-1, self.num_classes)

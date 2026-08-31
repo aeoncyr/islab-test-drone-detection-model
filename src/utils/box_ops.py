@@ -35,13 +35,13 @@ def decode_predictions(
     batch_size = model_outputs[0]["cls"].shape[0]
     all_boxes: List[List[torch.Tensor]] = [[] for _ in range(batch_size)]
 
-    _DEFAULT_STRIDES = [8, 16, 32]
+    _STRIDES = [4, 8, 16, 32] if len(model_outputs) == 4 else [8, 16, 32]
     for idx, pred in enumerate(model_outputs):
         if "stride" in pred:
             s = pred["stride"]
             stride = int(s.flatten()[0].item()) if isinstance(s, torch.Tensor) else int(s)
         else:
-            stride = _DEFAULT_STRIDES[idx]
+            stride = _STRIDES[idx]
         cls_logits = pred["cls"]   # (B, C, H, W)
         reg_preds = pred["reg"]    # (B, 4, H, W)
         obj_logits = pred["obj"]   # (B, 1, H, W)
