@@ -1,5 +1,8 @@
 # 🤝 Contributing to Vanilla Drone Detection
 
+> [!NOTE]
+> **Project Context**: This repository originated as part of the AI Engineering Researcher evaluation test for **ISLab, Pusan National University**. To support the long-term continuation of this research and facilitate open-source collaboration, these guidelines establish a clean, safe, and reproducible CI/CD development workflow.
+
 Thank you for your interest in contributing to the **Vanilla Drone Detection** project! To maintain high code quality, scientific rigor, and a clean Git history, all contributors must adhere to our standardized development workflow.
 
 ---

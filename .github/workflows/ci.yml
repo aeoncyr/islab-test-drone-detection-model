@@ -1,3 +1,9 @@
+# ==============================================================================
+# CI Pipeline Verification Workflow
+# Origin: ISLab Pusan National University AI Engineering Researcher Evaluation
+# Purpose: Ensures clean, safe, and reproducible CI/CD for ongoing development
+# ==============================================================================
+
 name: CI Pipeline Verification
 
 on:

@@ -6,6 +6,8 @@ labels: enhancement
 assignees: aeoncyr
 ---
 
+> *Context: This project was developed for the ISLab Pusan National University AI Engineering Researcher evaluation. We welcome research continuations and enhancements following our CI/CD guidelines.*
+
 ### 💡 Proposed Feature / Enhancement
 <!-- A clear and concise description of what you want to achieve -->
 

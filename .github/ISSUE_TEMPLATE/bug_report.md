@@ -6,6 +6,8 @@ labels: bug
 assignees: aeoncyr
 ---
 
+> *Context: This project was developed for the ISLab Pusan National University AI Engineering Researcher evaluation. We welcome bug reports and maintenance contributions following our CI/CD guidelines.*
+
 ### 🐛 Bug Description
 <!-- A clear and concise description of the bug -->
 

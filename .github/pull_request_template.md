@@ -1,5 +1,7 @@
 ## 📋 Pull Request Summary
 
+> *This project originates from the AI Engineering Researcher evaluation for **ISLab, Pusan National University**. Contributions help advance edge-native UAV detection research through clean, safe CI/CD practices.*
+
 ### 🎯 Linked Issue
 Closes #<!-- Insert issue number here, e.g. #12 -->
 
