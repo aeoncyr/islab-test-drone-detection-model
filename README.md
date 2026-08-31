@@ -98,18 +98,18 @@ where $\Omega$ denotes the set of all spatial grid cells across all pyramid leve
 $$\mathcal{L}_{cls}^{(i)} = - \alpha_t (1 - p_t^{(i)})^\gamma \log(p_t^{(i)}), \quad \gamma = 2.0, \quad \alpha = 0.25$$
 
 #### 2. Centerness Quality Loss ($\mathcal{L}_{obj}$)
-$$\mathcal{L}_{obj}^{(i)} = - \left[ q_i^* \log(\hat{q}_i) + (1 - q_i^*) \log(1 - \hat{q}_i) \right]$$
+$$\mathcal{L}_{obj}^{(i)} = - \left[ q_i^{\ast} \log(\hat{q}_i) + (1 - q_i^{\ast}) \log(1 - \hat{q}_i) \right]$$
 
-$$q_i^* = \sqrt{\frac{\min(l^*, r^*)}{\max(l^*, r^*)} \times \frac{\min(t^*, b^*)}{\max(t^*, b^*)}}$$
+$$q_i^{\ast} = \sqrt{\frac{\min(l^{\ast}, r^{\ast})}{\max(l^{\ast}, r^{\ast})} \times \frac{\min(t^{\ast}, b^{\ast})}{\max(t^{\ast}, b^{\ast})}}$$
 
 #### 3. Hybrid CIoU-NWD Geometric Regression Loss ($\mathcal{L}_{reg}$)
 $$\mathcal{L}_{reg} = \omega \cdot \mathcal{L}_{CIoU} + (1 - \omega) \cdot \mathcal{L}_{NWD}, \quad \omega = 0.5$$
 
 - **Complete-IoU ($\mathcal{L}_{CIoU}$)**:
-$$\mathcal{L}_{CIoU} = 1 - \text{IoU} + \frac{\rho^2(\mathbf{b}, \mathbf{b}^{gt})}{c^2} + \alpha_v v, \quad v = \frac{4}{\pi^2}\left(\arctan\frac{w^{gt}}{h^{gt}} - \arctan\frac{w}{h}\right)^2$$
+$$\mathcal{L}_{CIoU} = 1 - \text{IoU} + \frac{\rho^2(\mathbf{b}, \mathbf{b}^{\text{gt}})}{c^2} + \alpha_v v, \quad v = \frac{4}{\pi^2}\left(\arctan\frac{w^{\text{gt}}}{h^{\text{gt}}} - \arctan\frac{w}{h}\right)^2$$
 
 - **Normalized Wasserstein Distance ($\mathcal{L}_{NWD}$)**:
-$$W_2^2(\mathbf{b}, \mathbf{b}^{gt}) = (cx - cx^{gt})^2 + (cy - cy^{gt})^2 + \frac{(w - w^{gt})^2 + (h - h^{gt})^2}{4}$$
+$$W_2^2(\mathbf{b}, \mathbf{b}^{\text{gt}}) = (cx - cx^{\text{gt}})^2 + (cy - cy^{\text{gt}})^2 + \frac{(w - w^{\text{gt}})^2 + (h - h^{\text{gt}})^2}{4}$$
 
 $$\mathcal{L}_{NWD} = 1 - \exp\left( - \frac{\sqrt{W_2^2}}{C} \right), \quad C = 12.8$$
 
