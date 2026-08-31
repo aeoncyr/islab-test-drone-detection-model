@@ -32,10 +32,12 @@ datasets/
 *.tar.gz
 *.tar
 
-# Model Checkpoints & Large Binary Artifacts (>100MB blocked by GitHub)
-*.pth
-*.pt
-*.onnx
+# Redundant Intermediate Checkpoints (best.pth/best.pt are tracked via Git LFS)
+**/epoch_*.pth
+**/epoch_*.pt
+**/latest.pth
+**/latest.pt
+**/last.pt
 *.engine
 *.bin
 
