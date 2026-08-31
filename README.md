@@ -309,16 +309,6 @@ The companion scientific paper is formatted strictly under **IEEE Conference (IE
 - **LaTeX Source**: [`paper/islab_pusan_vanilla_drone_detection.tex`](paper/islab_pusan_vanilla_drone_detection.tex)
 - **High-Resolution Figures**: [`paper/figures/`](paper/figures/)
 
-### 📝 BibTeX Citation
-```bibtex
-@inproceedings{adikusuma2026edgenative,
-  author    = {Fajar Wira Adikusuma},
-  title     = {Edge-Native UAV Detection From Scratch: An Anchor-Free Architecture with Multi-Scale $P_2$ Fusion and Hybrid Wasserstein Optimization},
-  booktitle = {IEEE Conference on Computer Vision and Intelligent Systems (ISLab Evaluation)},
-  year      = {2026}
-}
-```
-
 ---
 
 ## 👤 Author Information
