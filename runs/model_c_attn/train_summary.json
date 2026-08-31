@@ -1,0 +1,9 @@
+{
+  "model_name": "model_c_attn",
+  "epochs": 50,
+  "total_train_time_sec": 1445.2021145609997,
+  "total_train_time_formatted": "24m 5s",
+  "avg_epoch_sec": 28.904042291219994,
+  "best_epoch": 39,
+  "best_mAP50": 0.905089296273196
+}

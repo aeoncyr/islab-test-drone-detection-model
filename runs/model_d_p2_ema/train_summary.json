@@ -1,0 +1,9 @@
+{
+  "model_name": "model_d_p2_ema",
+  "epochs": 50,
+  "total_train_time_sec": 3373.539869157001,
+  "total_train_time_formatted": "56m 13s",
+  "avg_epoch_sec": 67.47079738314001,
+  "best_epoch": 34,
+  "best_mAP50": 0.9053543066382307
+}

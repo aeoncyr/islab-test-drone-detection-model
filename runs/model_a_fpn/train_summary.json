@@ -1,0 +1,9 @@
+{
+  "model_name": "model_a_fpn",
+  "epochs": 50,
+  "total_train_time_sec": 1380.517071157,
+  "total_train_time_formatted": "23m 0s",
+  "avg_epoch_sec": 27.61034142314,
+  "best_epoch": 35,
+  "best_mAP50": 0.9028892577360099
+}

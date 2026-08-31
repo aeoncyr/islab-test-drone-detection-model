@@ -1,0 +1,5 @@
+Model,Paradigm,Backbone,Neck,Attention,Params (M),mAP@50 (%),mAP@50:95 (%),Precision (%),Recall (%),Train Time,Latency (ms),FPS,Training Type
+Model-A (FPN Baseline),Vanilla CNN,CSPDarknet,FPN,None,13.25M,0.00%,0.00%,0.00%,0.00%,N/A,108.29 ms,9.2,Scratch (Vanilla)
+Model-B (FPN + PAN),Vanilla CNN,CSPDarknet,FPN + PAN,None,14.57M,0.00%,0.00%,0.00%,0.00%,N/A,116.73 ms,8.6,Scratch (Vanilla)
+Model-C (FPN+PAN+CBAM),Vanilla CNN,CSPDarknet,FPN + PAN,CBAM (Spatial+Ch),14.62M,0.00%,0.00%,0.00%,0.00%,N/A,120.41 ms,8.3,Scratch (Vanilla)
+Model-D (P2-P5+CBAM+EMA),Vanilla CNN,CSPDarknet,FPN + PAN (4-Level),CBAM (Spatial+Ch) + EMA,18.24M,0.00%,0.00%,0.00%,0.00%,N/A,505.86 ms,2.0,Scratch (Vanilla)

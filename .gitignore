@@ -32,8 +32,7 @@ datasets/
 *.tar.gz
 *.tar
 
-# Model Checkpoints & Large Artifacts
-runs/
+# Model Checkpoints & Large Binary Artifacts (>100MB blocked by GitHub)
 *.pth
 *.pt
 *.onnx

@@ -1,0 +1,9 @@
+{
+  "model_name": "model_b_pan",
+  "epochs": 50,
+  "total_train_time_sec": 1405.5555188189999,
+  "total_train_time_formatted": "23m 25s",
+  "avg_epoch_sec": 28.111110376379997,
+  "best_epoch": 45,
+  "best_mAP50": 0.904691983958093
+}
